@@ -62,6 +62,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
           {/* 탭 버튼들 (컴포넌트 코드 vs 라이브러리 내부 코드) */}
           {allSnippets.length > 1 && (
             <div
+              className="hide-scrollbar"
               style={{
                 display: 'flex',
                 gap: '4px',
@@ -69,6 +70,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                 padding: '2px',
                 borderRadius: '6px',
                 border: '1px solid #30363d',
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
               }}
             >
               {allSnippets.map((snippet, idx) => (
@@ -85,6 +88,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                     borderRadius: '4px',
                     cursor: 'pointer',
                     transition: 'all 0.15s',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {snippet.tabLabel}
@@ -136,12 +140,14 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
           >
             {({ className, style, tokens, getLineProps, getTokenProps }) => (
               <pre
-                className={`${className} code-viewer-pre`}
+                className={`${className} code-viewer-pre hide-scrollbar`}
                 style={{
                   ...style,
                   margin: 0,
                   padding: '16px 0',
                   overflowX: 'auto',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
                   fontSize: '12.5px',
                   lineHeight: '1.6',
                   background: '#0a0e14',

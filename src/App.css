@@ -306,24 +306,31 @@ input[type="range"] {
   font-family: 'Fira Code', 'SFMono-Regular', Consolas, Menlo, Monaco, monospace;
   font-size: 12.5px;
   line-height: 1.6;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.code-viewer-pre::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
+/* ==========================================================================
+   스크롤바 숨김 처리 (기능은 유지하되 시각적 스크롤바만 숨김)
+   ========================================================================== */
+.hide-scrollbar,
+.no-scrollbar,
+.tab-navigation,
+.code-viewer-pre,
+.streaming-viewport {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE, Edge */
 }
 
-.code-viewer-pre::-webkit-scrollbar-track {
-  background: #090d13;
-}
-
-.code-viewer-pre::-webkit-scrollbar-thumb {
-  background: #21262d;
-  border-radius: 4px;
-}
-
-.code-viewer-pre::-webkit-scrollbar-thumb:hover {
-  background: #30363d;
+.hide-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar,
+.tab-navigation::-webkit-scrollbar,
+.code-viewer-pre::-webkit-scrollbar,
+.streaming-viewport::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 .code-line-row {

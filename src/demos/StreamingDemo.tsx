@@ -301,11 +301,11 @@ export function countPreparedLines(
           </div>
         </div>
 
-        {/* 스트리밍 뷰포트 (안티패턴일 때 매 토큰마다 빨간색 경고 플래시 발동) */}
+        {/* 스트리밍 뷰포트 (스크롤바 숨김 처리 및 안티패턴 시 경고 플래시) */}
         <div
           key={mode === 'naive' ? `naive-box-${flashKey}` : 'pretext-box'}
           ref={chatBoxRef}
-          className={mode === 'naive' && isStreaming ? 'flash-reflow' : ''}
+          className={`streaming-viewport hide-scrollbar ${mode === 'naive' && isStreaming ? 'flash-reflow' : ''}`}
           style={{
             width: `${CONTAINER_WIDTH}px`,
             maxWidth: '100%',
@@ -316,6 +316,8 @@ export function countPreparedLines(
             padding: '16px',
             margin: '0 auto',
             overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
             fontSize: '15px',
             lineHeight: `${LINE_HEIGHT}px`,
             color: '#f0f6fc',
