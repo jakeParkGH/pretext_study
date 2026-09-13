@@ -39,7 +39,7 @@ const STREAMING_SOURCE = [
   '그자리에서 ',
   '강제 ',
   '동기 ',
-  '리플로우(Hard Reflow)를 ',
+  '레이아웃(Forced Layout)을 ',
   '일으킵니다. ',
   '1초에 ',
   '수십 개의 ',
@@ -270,7 +270,7 @@ export function countPreparedLines(
               className={`btn ${mode === 'naive' ? 'btn-primary' : ''}`}
               onClick={() => setMode('naive')}
             >
-              ❌ 기존 (강제 Reflow)
+              ❌ 기존 (강제 동기 레이아웃)
             </button>
             <button
               className={`btn ${mode === 'pretext' ? 'btn-primary' : ''}`}
@@ -283,20 +283,20 @@ export function countPreparedLines(
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {mode === 'naive' && isStreaming && (
               <span key={`alert-${flashKey}`} className="reflow-warning-tag">
-                ⚠️ HARD REFLOW!
+                ⚠️ FORCED LAYOUT!
               </span>
             )}
             {mode === 'pretext' && (
               <span className="pure-math-tag">
-                🛡️ VSync Safe (0 Reflow)
+                🛡️ VSync Safe (0 Forced Layout)
               </span>
             )}
             <span
               className={`metric-pill ${mode === 'naive' && forcedReflowCount > 0 ? 'danger' : 'info'}`}
             >
               {mode === 'naive'
-                ? `강제 동기 리플로우 발생: ${forcedReflowCount}회`
-                : 'Zero DOM 리플로우 (Pretext 순수 연산)'}
+                ? `강제 동기 레이아웃 발생: ${forcedReflowCount}회`
+                : 'Zero 강제 레이아웃 (Pretext 순수 연산)'}
             </span>
           </div>
         </div>

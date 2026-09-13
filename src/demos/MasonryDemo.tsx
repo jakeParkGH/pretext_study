@@ -20,8 +20,8 @@ const RAW_POSTS: MasonryCardData[] = [
   },
   {
     id: 2,
-    title: '강제 동기 리플로우(Layout Thrashing)',
-    text: 'DOM 요소를 추가한 직후 offsetHeight를 호출하면 브라우저는 VSync를 기다리지 못하고 즉시 레이아웃 파이프라인을 돌립니다. 카드가 100개면 단일 프레임 안에서 100번의 강제 리플로우가 일어납니다.',
+    title: '강제 동기 레이아웃(Layout Thrashing)',
+    text: 'DOM 요소를 추가한 직후 offsetHeight를 호출하면 Blink 엔진은 VSync를 기다리지 못하고 Document::UpdateStyleAndLayout()을 즉시 실행합니다. 카드가 100개면 단일 프레임 안에서 100번의 강제 레이아웃이 연쇄 호출됩니다.',
     tag: '브라우저 원리',
     color: '#f85149',
   },
@@ -259,7 +259,7 @@ export type PreparedText = {
               onClick={handleSimulateDomReflow}
               disabled={isSimulatingDom}
             >
-              {isSimulatingDom ? '🔥 DOM 리플로우 연쇄 발생 중...' : '💥 DOM 역측정 시뮬레이션'}
+              {isSimulatingDom ? '🔥 강제 동기 레이아웃 연쇄 발생 중...' : '💥 DOM 역측정 시뮬레이션'}
             </button>
 
             <span className="metric-pill info">
