@@ -75,7 +75,7 @@ export const MasonryDemo: React.FC = () => {
   const [mathFlashKey, setMathFlashKey] = useState<number>(0)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.min(850, window.innerWidth - 40) : 850
+    typeof window !== 'undefined' ? Math.min(850, window.innerWidth - 64) : 850
   )
 
   useEffect(() => {
@@ -264,7 +264,7 @@ export type PreparedText = {
 `;
 
   return (
-    <div className="demo-wrapper" ref={wrapperRef}>
+    <div className="demo-wrapper">
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -312,7 +312,7 @@ export type PreparedText = {
             <input
               type="range"
               min={260}
-              max={950}
+              max={Math.max(260, maxAvailableWidth)}
               value={effectiveViewportWidth}
               onChange={(e) => setViewportWidth(Number(e.target.value))}
             />
@@ -333,90 +333,100 @@ export type PreparedText = {
           </div>
         </div>
 
-        {/* 메이슨리 뷰포트 */}
+        {/* 메이슨리 뷰포트 (내부 가용 폭을 100% 정밀 측정하여 카드 이탈 원천 차단) */}
         <div
+          ref={wrapperRef}
           style={{
-            position: 'relative',
-            width: `${effectiveViewportWidth}px`,
-            height: `${masonryLayout.totalHeight}px`,
+            width: '100%',
             maxWidth: '100%',
-            margin: '0 auto',
-            transition: 'height 0.2s ease',
+            overflow: 'hidden',
           }}
         >
-          {masonryLayout.positioned.map((card) => {
-            const isReflowing = simulatedReflowCardId === card.id
+          <div
+            style={{
+              position: 'relative',
+              width: `${effectiveViewportWidth}px`,
+              height: `${masonryLayout.totalHeight}px`,
+              maxWidth: '100%',
+              margin: '0 auto',
+              transition: 'height 0.2s ease',
+            }}
+          >
+            {masonryLayout.positioned.map((card) => {
+              const isReflowing = simulatedReflowCardId === card.id
 
-            return (
-              <div
-                key={card.id}
-                className={isReflowing ? 'flash-reflow' : ''}
-                style={{
-                  position: 'absolute',
-                  transform: `translate3d(${card.x}px, ${card.y}px, 0)`,
-                  width: `${card.width}px`,
-                  height: `${card.height}px`,
-                  background: 'var(--bg-secondary)',
-                  border: `1px solid ${isReflowing ? '#f85149' : 'var(--border-color)'}`,
-                  borderRadius: '10px',
-                  padding: `${CARD_PADDING}px`,
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                  transition: 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.15s ease',
-                  overflow: 'hidden',
-                }}
-              >
+              return (
                 <div
+                  key={card.id}
+                  className={isReflowing ? 'flash-reflow' : ''}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    height: `${META_HEIGHT}px`,
-                    marginBottom: `${FLEX_GAP}px`,
+                    position: 'absolute',
+                    transform: `translate3d(${card.x}px, ${card.y}px, 0)`,
+                    width: `${card.width}px`,
+                    height: `${card.height}px`,
+                    background: 'var(--bg-secondary)',
+                    border: `1px solid ${isReflowing ? '#f85149' : 'var(--border-color)'}`,
+                    borderRadius: '10px',
+                    padding: `${CARD_PADDING}px`,
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                    transition: 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.15s ease',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: card.color,
-                      background: `${card.color}22`,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      border: `1px solid ${card.color}44`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      height: `${META_HEIGHT}px`,
+                      marginBottom: `${FLEX_GAP}px`,
                     }}
                   >
-                    #{card.tag}
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#8b949e', fontFamily: 'monospace' }}>
-                    Y: {Math.round(card.y)}px
-                  </span>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: card.color,
+                        background: `${card.color}22`,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        border: `1px solid ${card.color}44`,
+                      }}
+                    >
+                      #{card.tag}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#8b949e', fontFamily: 'monospace' }}>
+                      Y: {Math.round(card.y)}px
+                    </span>
+                  </div>
+
+                  <h3
+                    style={{
+                      font: TITLE_FONT,
+                      lineHeight: `${TITLE_LINE_HEIGHT}px`,
+                      color: 'var(--text-main)',
+                      marginBottom: `${FLEX_GAP}px`,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {card.title}
+                  </h3>
+
+                  <p
+                    style={{
+                      font: FONT,
+                      lineHeight: `${LINE_HEIGHT}px`,
+                      color: '#8b949e',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {card.text}
+                  </p>
                 </div>
-
-                <h3
-                  style={{
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    lineHeight: `${TITLE_LINE_HEIGHT}px`,
-                    color: 'var(--text-main)',
-                    marginBottom: `${FLEX_GAP}px`,
-                  }}
-                >
-                  {card.title}
-                </h3>
-
-                <p
-                  style={{
-                    fontSize: '14px',
-                    lineHeight: `${LINE_HEIGHT}px`,
-                    color: '#8b949e',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {card.text}
-                </p>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
 

@@ -146,7 +146,7 @@ export const TanStackFeedDemo: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.min(560, window.innerWidth - 40) : 560
+    typeof window !== 'undefined' ? Math.min(560, window.innerWidth - 64) : 560
   )
 
   useEffect(() => {
@@ -430,7 +430,7 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
   ]
 
   return (
-    <div className="demo-wrapper" ref={wrapperRef}>
+    <div className="demo-wrapper">
       {/* 데모 헤더 */}
       <div className="demo-card">
         <div className="demo-card-header">
@@ -664,7 +664,7 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
         </div>
 
         {/* 무한스크롤 가상화 피드 뷰포트 */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div ref={wrapperRef} style={{ display: 'flex', justifyContent: 'center', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
           <div
             ref={scrollContainerRef}
             className="virtual-scroll-container hide-scrollbar"

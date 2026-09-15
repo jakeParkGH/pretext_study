@@ -17,7 +17,7 @@ export const BasicMeasureDemo: React.FC = () => {
   const domTargetRef = useRef<HTMLDivElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.min(360, window.innerWidth - 40) : 360
+    typeof window !== 'undefined' ? Math.min(360, window.innerWidth - 64) : 360
   )
 
   useEffect(() => {
@@ -191,7 +191,7 @@ function commitLineWithTrailingSpaces(
 `;
 
   return (
-    <div className="demo-wrapper" ref={wrapperRef}>
+    <div className="demo-wrapper">
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -228,8 +228,12 @@ function commitLineWithTrailingSpaces(
           </div>
         </div>
 
-        {/* 인터랙티브 뷰포트 비교 */}
-        <div className="side-by-side" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+        {/* 인터랙티브 뷰포트 비교 (내부 가용 폭을 정밀 측정) */}
+        <div
+          ref={wrapperRef}
+          className="side-by-side"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}
+        >
           {/* Pretext 뷰포트 */}
           <div className="viewport-box" style={{ width: `${effectiveWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
             <div className="viewport-label">

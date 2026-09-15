@@ -80,7 +80,7 @@ function carveTextLineSlots(
 export const ShapeFlowDemo: React.FC = () => {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.min(580, window.innerWidth - 40) : 580
+    typeof window !== 'undefined' ? Math.min(580, window.innerWidth - 64) : 580
   )
 
   useEffect(() => {
@@ -340,7 +340,7 @@ export function layoutNextLine(
 `;
 
   return (
-    <div className="demo-wrapper" ref={wrapperRef}>
+    <div className="demo-wrapper">
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -445,21 +445,22 @@ export function layoutNextLine(
           </button>
         </div>
 
-        {/* 인터랙티브 래핑 뷰포트 */}
-        <div
-          style={{
-            position: 'relative',
-            width: `${effectiveWidth}px`,
-            maxWidth: '100%',
-            height: `${CONTAINER_HEIGHT}px`,
-            background: '#090d13',
-            border: '1px solid #30363d',
-            borderRadius: '10px',
-            margin: '0 auto',
-            overflow: 'hidden',
-            userSelect: 'none',
-          }}
-        >
+        {/* 인터랙티브 래핑 뷰포트 wrapper */}
+        <div ref={wrapperRef} style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+          <div
+            style={{
+              position: 'relative',
+              width: `${effectiveWidth}px`,
+              maxWidth: '100%',
+              height: `${CONTAINER_HEIGHT}px`,
+              background: '#090d13',
+              border: '1px solid #30363d',
+              borderRadius: '10px',
+              margin: '0 auto',
+              overflow: 'hidden',
+              userSelect: 'none',
+            }}
+          >
           {/* 직접 드래그 가능한 장애물 원형 오브젝트 */}
           <div
             onPointerDown={handlePointerDown}
@@ -523,6 +524,7 @@ export function layoutNextLine(
               {item.text}
             </div>
           ))}
+          </div>
         </div>
       </div>
 

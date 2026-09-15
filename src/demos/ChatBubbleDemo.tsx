@@ -26,7 +26,7 @@ export const ChatBubbleDemo: React.FC = () => {
   const [usePretextFit, setUsePretextFit] = useState<boolean>(true)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.min(480, window.innerWidth - 40) : 480
+    typeof window !== 'undefined' ? Math.min(480, window.innerWidth - 64) : 480
   )
 
   useEffect(() => {
@@ -218,7 +218,7 @@ function ChatBubble({ message, maxWidth }) {
 `;
 
   return (
-    <div className="demo-wrapper" ref={wrapperRef}>
+    <div className="demo-wrapper">
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -256,10 +256,11 @@ function ChatBubble({ message, maxWidth }) {
         </div>
 
         {/* 채팅창 뷰포트 */}
-        <div
-          className="chat-container"
-          style={{ width: `${effectiveChatWidth}px`, maxWidth: '100%', margin: '0 auto' }}
-        >
+        <div ref={wrapperRef} style={{ width: '100%', maxWidth: '100%' }}>
+          <div
+            className="chat-container"
+            style={{ width: `${effectiveChatWidth}px`, maxWidth: '100%', margin: '0 auto' }}
+          >
           {bubbleCalculations.items.map((item) => {
             const currentWidth = usePretextFit ? item.tightWidth : item.cssWidth
             const wastedDiff = item.cssWidth - item.tightWidth
@@ -298,6 +299,7 @@ function ChatBubble({ message, maxWidth }) {
               </div>
             )
           })}
+          </div>
         </div>
       </div>
 

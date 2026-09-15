@@ -82,7 +82,7 @@ export const StreamingDemo: React.FC = () => {
   const chatBoxRef = useRef<HTMLDivElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
-    typeof window !== 'undefined' ? Math.min(CONTAINER_WIDTH, window.innerWidth - 40) : CONTAINER_WIDTH
+    typeof window !== 'undefined' ? Math.min(CONTAINER_WIDTH, window.innerWidth - 64) : CONTAINER_WIDTH
   )
 
   useEffect(() => {
@@ -294,7 +294,7 @@ class FastStreamingScroller {
 `;
 
   return (
-    <div className="demo-wrapper" ref={wrapperRef}>
+    <div className="demo-wrapper">
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -342,15 +342,16 @@ class FastStreamingScroller {
           </div>
         </div>
 
-        {/* 스트리밍 채팅창 뷰포트 */}
-        <div
-          ref={chatBoxRef}
-          key={`chat-${flashKey}`}
-          className={mode === 'naive' && flashKey > 0 ? 'flash-reflow' : ''}
-          style={{
-            width: `${effectiveWidth}px`,
-            height: '240px',
-            maxWidth: '100%',
+        {/* 스트리밍 채팅창 뷰포트 wrapper */}
+        <div ref={wrapperRef} style={{ width: '100%', maxWidth: '100%' }}>
+          <div
+            ref={chatBoxRef}
+            key={`chat-${flashKey}`}
+            className={mode === 'naive' && flashKey > 0 ? 'flash-reflow' : ''}
+            style={{
+              width: `${effectiveWidth}px`,
+              height: '240px',
+              maxWidth: '100%',
             margin: '0 auto',
             background: '#090d13',
             border: `1px solid ${mode === 'naive' && flashKey > 0 ? '#f85149' : 'var(--border-color)'}`,
@@ -383,6 +384,7 @@ class FastStreamingScroller {
               }}
             />
           )}
+          </div>
         </div>
       </div>
 
