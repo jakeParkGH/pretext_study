@@ -9,7 +9,22 @@ import { StreamingDemo } from './demos/StreamingDemo'
 type DemoTab = 'basic' | 'bubble' | 'masonry' | 'shape' | 'streaming'
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<DemoTab>('basic')
+  const [activeTab, setActiveTab] = useState<DemoTab>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (['basic', 'bubble', 'masonry', 'shape', 'streaming'].includes(hash)) {
+        return hash as DemoTab
+      }
+    }
+    return 'basic'
+  })
+
+  const handleTabChange = (tab: DemoTab) => {
+    setActiveTab(tab)
+    if (typeof window !== 'undefined') {
+      window.location.hash = tab
+    }
+  }
 
   return (
     <div className="app-container">
@@ -19,31 +34,31 @@ const App: React.FC = () => {
       <nav className="tab-navigation">
         <button
           className={`tab-btn ${activeTab === 'basic' ? 'active' : ''}`}
-          onClick={() => setActiveTab('basic')}
+          onClick={() => handleTabChange('basic')}
         >
           <span>❄️</span> 1. Cold/Hot Path 성능 측정
         </button>
         <button
           className={`tab-btn ${activeTab === 'bubble' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bubble')}
+          onClick={() => handleTabChange('bubble')}
         >
           <span>💬</span> 2. 채팅 말풍선 여백 최적화 (이진 탐색)
         </button>
         <button
           className={`tab-btn ${activeTab === 'masonry' ? 'active' : ''}`}
-          onClick={() => setActiveTab('masonry')}
+          onClick={() => handleTabChange('masonry')}
         >
           <span>🧱</span> 3. 선제적 메이슨리 (Zero CLS)
         </button>
         <button
           className={`tab-btn ${activeTab === 'shape' ? 'active' : ''}`}
-          onClick={() => setActiveTab('shape')}
+          onClick={() => handleTabChange('shape')}
         >
           <span>🌊</span> 4. 자유 형태 텍스트 플로우 (커서 라우팅)
         </button>
         <button
           className={`tab-btn ${activeTab === 'streaming' ? 'active' : ''}`}
-          onClick={() => setActiveTab('streaming')}
+          onClick={() => handleTabChange('streaming')}
         >
           <span>⚡</span> 5. LLM 토큰 스트리밍 & VSync 보호
         </button>

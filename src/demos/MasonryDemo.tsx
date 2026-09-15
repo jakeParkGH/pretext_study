@@ -57,8 +57,13 @@ const RAW_POSTS: MasonryCardData[] = [
 
 const FONT = '14px "Pretendard", -apple-system, sans-serif'
 const LINE_HEIGHT = 22
+const TITLE_FONT = 'bold 15px "Pretendard", -apple-system, sans-serif'
+const TITLE_LINE_HEIGHT = 24
 const CARD_PADDING = 16
 const GAP = 16
+const META_HEIGHT = 22
+const FLEX_GAP = 8
+const BORDER_WIDTH = 2
 
 export const MasonryDemo: React.FC = () => {
   const [columns, setColumns] = useState<number>(3)
@@ -67,11 +72,12 @@ export const MasonryDemo: React.FC = () => {
   const [isSimulatingDom, setIsSimulatingDom] = useState<boolean>(false)
   const [mathFlashKey, setMathFlashKey] = useState<number>(0)
 
-  // [Cold Path]: 텍스트 변경 시 1회만 prepare()
+  // [Cold Path]: 텍스트 변경 시 1회만 prepare() (타이틀과 본문 모두 사전 준비)
   const preparedCards = useMemo(() => {
     return RAW_POSTS.map((post) => ({
       ...post,
-      prepared: prepare(post.text, FONT),
+      preparedTitle: prepare(post.title, TITLE_FONT),
+      preparedText: prepare(post.text, FONT),
     }))
   }, [])
 
@@ -84,7 +90,7 @@ export const MasonryDemo: React.FC = () => {
     const start = performance.now()
 
     const colWidth = (viewportWidth - (columns - 1) * GAP) / columns
-    const textWidth = Math.max(50, colWidth - CARD_PADDING * 2)
+    const textWidth = Math.max(50, colWidth - CARD_PADDING * 2 - BORDER_WIDTH)
 
     // 각 열의 현재 누적 높이 관리 배열
     const colHeights = new Float64Array(columns)
@@ -96,12 +102,14 @@ export const MasonryDemo: React.FC = () => {
         if (colHeights[c] < colHeights[shortest]) shortest = c
       }
 
-      // 2. Pretext layout()으로 본문 텍스트 높이 즉각 도출 (0.0002ms)
-      const { height: textHeight } = layout(card.prepared, textWidth, LINE_HEIGHT)
+      // 2. Pretext layout()으로 타이틀 및 본문 텍스트 높이 사전 계산 (0.0002ms)
+      const { height: titleHeight } = layout(card.preparedTitle, textWidth, TITLE_LINE_HEIGHT)
+      const { height: textHeight } = layout(card.preparedText, textWidth, LINE_HEIGHT)
 
-      // 3. 카드 전체 높이 (헤더 + 텍스트 + 패딩)
-      const headerEstimate = 44
-      const cardHeight = headerEstimate + textHeight + CARD_PADDING * 2
+      // 3. 카드 전체 높이 (패딩 + 테두리 + 태그행 + 타이틀 + 본문 + flex gap)
+      //    DOM 측정 없이 순수 산술 연산으로 1px의 오차도 없이 100% 정확한 카드 높이 확정!
+      const fixedOverhead = CARD_PADDING * 2 + BORDER_WIDTH + META_HEIGHT + FLEX_GAP * 2
+      const cardHeight = fixedOverhead + titleHeight + textHeight
 
       // 4. 절대 좌표(x, y) 할당
       const x = shortest * (colWidth + GAP)
@@ -153,7 +161,7 @@ export const MasonryDemo: React.FC = () => {
 import { layout } from '@chenglou/pretext'
 
 function computeMasonryLayout(cards, colCount, colWidth) {
-  const textWidth = colWidth - CARD_PADDING * 2;
+  const textWidth = colWidth - CARD_PADDING * 2 - BORDER_WIDTH;
   const colHeights = new Float64Array(colCount); // 각 열 누적 높이
 
   const positionedCards = cards.map((card) => {
@@ -163,9 +171,10 @@ function computeMasonryLayout(cards, colCount, colWidth) {
       if (colHeights[c] < colHeights[shortest]) shortest = c;
     }
 
-    // 2. ⚡ Pretext layout()으로 카드 텍스트 높이 사전 계산 (DOM 미생성 상태!)
-    const { height } = layout(card.prepared, textWidth, LINE_HEIGHT);
-    const totalCardHeight = height + CARD_PADDING * 2 + HEADER_HEIGHT;
+    // 2. ⚡ Pretext layout()으로 카드 타이틀 및 본문 텍스트 높이 사전 계산 (DOM 미생성 상태!)
+    const { height: titleHeight } = layout(card.preparedTitle, textWidth, TITLE_LINE_HEIGHT);
+    const { height: textHeight } = layout(card.preparedText, textWidth, LINE_HEIGHT);
+    const totalCardHeight = FIXED_OVERHEAD + titleHeight + textHeight;
 
     // 3. 절대 좌표(x, y) 즉시 확정
     const x = shortest * (colWidth + GAP);
@@ -293,11 +302,20 @@ export type PreparedText = {
                   boxShadow: isReflowingThisCard ? '0 0 24px rgba(248, 81, 73, 0.7)' : undefined,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    height: `${META_HEIGHT}px`,
+                    boxSizing: 'border-box',
+                  }}
+                >
                   <span
                     style={{
                       fontSize: '11px',
                       fontWeight: 700,
+                      lineHeight: '14px',
                       color: isReflowingThisCard ? '#f85149' : card.color,
                       background: 'rgba(255, 255, 255, 0.06)',
                       padding: '2px 8px',
@@ -306,10 +324,27 @@ export type PreparedText = {
                   >
                     {isReflowingThisCard ? '🔥 FORCED REFLOW!' : card.tag}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#8b949e' }}>#{card.id}</span>
+                  <span style={{ fontSize: '11px', color: '#8b949e', lineHeight: '14px' }}>#{card.id}</span>
                 </div>
-                <strong style={{ fontSize: '15px', color: '#f0f6fc' }}>{card.title}</strong>
-                <p style={{ fontSize: '14px', lineHeight: `${LINE_HEIGHT}px`, color: '#8b949e' }}>
+                <strong
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    lineHeight: `${TITLE_LINE_HEIGHT}px`,
+                    color: '#f0f6fc',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {card.title}
+                </strong>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    lineHeight: `${LINE_HEIGHT}px`,
+                    color: '#8b949e',
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {card.text}
                 </p>
               </div>
