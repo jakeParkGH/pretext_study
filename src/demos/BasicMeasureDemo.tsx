@@ -6,6 +6,10 @@ const SAMPLE_TEXT = `웹 프론트엔드 개발에서 텍스트의 크기와 줄
 
 const FONT = '16px "Pretendard", -apple-system, sans-serif'
 const LINE_HEIGHT = 26
+const PADDING = 12
+const BORDER = 1
+const OVERHEAD_H = PADDING * 2 + BORDER * 2 // 26px (좌우 패딩 24px + 테두리 2px)
+const OVERHEAD_V = PADDING * 2 + BORDER * 2 // 26px (상하 패딩 24px + 테두리 2px)
 
 export const BasicMeasureDemo: React.FC = () => {
   const [containerWidth, setContainerWidth] = useState<number>(360)
@@ -30,6 +34,8 @@ export const BasicMeasureDemo: React.FC = () => {
   }, [])
 
   const effectiveWidth = Math.max(180, Math.min(containerWidth, maxAvailableWidth))
+  // 💡 핵심: 텍스트가 줄바꿈되는 실제 가용 내부 너비 = 컨테이너 너비 - 좌우 패딩/테두리
+  const contentWidth = Math.max(100, effectiveWidth - OVERHEAD_H)
 
   // ============================================================================
   // [Cold Path]: 1회성 전처리 (데이터 변경 시에만 실행)
@@ -49,11 +55,13 @@ export const BasicMeasureDemo: React.FC = () => {
   const [mathFlashKey, setMathFlashKey] = useState<number>(0)
   const pretextResult = useMemo(() => {
     const start = performance.now()
-    const result = layout(prepared, effectiveWidth, LINE_HEIGHT)
+    const result = layout(prepared, contentWidth, LINE_HEIGHT)
     const elapsedMs = performance.now() - start
     setMathFlashKey((prev) => prev + 1)
-    return { ...result, elapsedUs: (elapsedMs * 1000).toFixed(2) }
-  }, [prepared, effectiveWidth])
+    // 💡 박스 전체 높이(box-sizing: border-box) = 텍스트 산술 높이 + 상하 패딩/테두리
+    const totalBoxHeight = result.height + OVERHEAD_V
+    return { ...result, totalBoxHeight, elapsedUs: (elapsedMs * 1000).toFixed(2) }
+  }, [prepared, contentWidth])
 
   // 비교군: 기존 DOM 기반 측정 (Forced Synchronous Layout 발생)
   const [domMeasuredHeight, setDomMeasuredHeight] = useState<number>(0)
@@ -90,9 +98,14 @@ const prepared = prepare(text, FONT);
 
 // [Phase 2: Hot Path - 순수 산술 연산]
 // 1. DOM Query 0회, Canvas 호출 0회, 문자열 조작 0회
-// 2. 캐시된 세그먼트 너비 배열을 단순 누적 합산 (lineW += width)
-// 3. 소요 시간: 약 0.0002ms (0.2µs) - 윈도우 리사이즈 루프에서도 120fps 유지!
-const { height, lineCount } = layout(prepared, containerWidth, LINE_HEIGHT);
+// 2. 텍스트 가용 폭 = 컨테이너 폭 - 패딩(24px) - 테두리(2px)
+// 3. 캐시된 세그먼트 너비 배열을 단순 누적 합산 (lineW += width)
+// 4. 소요 시간: 약 0.0002ms (0.2µs) - 윈도우 리사이즈 루프에서도 120fps 유지!
+const contentWidth = containerWidth - (PADDING * 2 + BORDER * 2);
+const { height: textHeight, lineCount } = layout(prepared, contentWidth, LINE_HEIGHT);
+
+// 5. CSS box-sizing: border-box 적용 요소의 전체 높이
+const totalBoxHeight = textHeight + (PADDING * 2 + BORDER * 2);
 `;
 
   const libraryCodeSample = `// -------------------------------------------------------------
@@ -207,7 +220,7 @@ function commitLineWithTrailingSpaces(
               ⚡ Pretext: {pretextResult.elapsedUs} µs
             </span>
             <span className="metric-pill">
-              줄 수: {pretextResult.lineCount}줄 / {pretextResult.height}px
+              줄 수: {pretextResult.lineCount}줄 / 전체 {pretextResult.totalBoxHeight}px (본문 {pretextResult.height}px)
             </span>
             <span className="metric-pill danger">
               🔥 누적 Reflow: {totalReflowCount}회
@@ -222,20 +235,21 @@ function commitLineWithTrailingSpaces(
             <div className="viewport-label">
               <span>⚡ Pretext 순수 산술식 높이</span>
               <span key={mathFlashKey} className="flash-badge">
-                {pretextResult.height}px ({pretextResult.lineCount}줄)
+                {pretextResult.totalBoxHeight}px ({pretextResult.lineCount}줄)
               </span>
             </div>
             <div
               style={{
-                height: `${pretextResult.height}px`,
+                height: `${pretextResult.totalBoxHeight}px`,
                 background: 'var(--bg-secondary)',
-                border: '1px solid var(--accent-blue)',
-                padding: '12px',
+                border: `${BORDER}px solid var(--accent-blue)`,
+                padding: `${PADDING}px`,
                 borderRadius: '6px',
-                fontSize: '16px',
+                font: FONT,
                 lineHeight: `${LINE_HEIGHT}px`,
                 wordBreak: 'break-word',
                 transition: 'height 0.1s ease',
+                boxSizing: 'border-box',
               }}
             >
               {text}
@@ -257,12 +271,13 @@ function commitLineWithTrailingSpaces(
               ref={domTargetRef}
               style={{
                 background: 'var(--bg-secondary)',
-                border: '1px solid rgba(248, 81, 73, 0.6)',
-                padding: '12px',
+                border: `${BORDER}px solid rgba(248, 81, 73, 0.6)`,
+                padding: `${PADDING}px`,
                 borderRadius: '6px',
-                fontSize: '16px',
+                font: FONT,
                 lineHeight: `${LINE_HEIGHT}px`,
                 wordBreak: 'break-word',
+                boxSizing: 'border-box',
               }}
             >
               {text}
