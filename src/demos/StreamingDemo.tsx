@@ -237,6 +237,43 @@ export function countPreparedLines(
  */
 `;
 
+  const streamingVsyncCodeSample = `// ------------------------------------------------------------------
+// [초당 50+ 토큰 고속 스트리밍과 VSync 8.3ms 프레임 예산 보호]
+// ------------------------------------------------------------------
+
+/**
+ * 💥 문제점: 최신 LLM(Gemini Flash, Claude 등)의 초당 50~100 토큰 폭주
+ * 
+ * 120Hz 주사율 디스플레이의 프레임 예산은 단 8.33ms입니다.
+ * 초당 60개의 토큰이 들어올 때 매번 scrollHeight를 읽으면:
+ * - 1초당 60회의 동기식 레이아웃(Layout Thrashing) 강제 호출
+ * - 회당 레이아웃 비용 1.5ms 가정 시: 60 * 1.5ms = 90ms/sec가 순수 레이아웃에 낭비됨!
+ * - 메인 스레드가 완전히 멈춰서 버튼 클릭, 스크롤 인터랙션이 먹통이 됨.
+ */
+
+// ✅ 해결책: Pretext + rAF 버퍼링 콤보
+class FastStreamingScroller {
+  private targetScrollTop = 0;
+  private rafScheduled = false;
+
+  onChunk(accumulatedText: string, containerWidth: number) {
+    // 1. 순수 JS 산술 연산으로 높이 계산 (~0.0002ms) -> 프레임 예산의 0.002%만 사용!
+    const prepared = prepare(accumulatedText, FONT);
+    const { height } = layout(prepared, containerWidth, LINE_HEIGHT);
+    this.targetScrollTop = height;
+
+    // 2. 브라우저 VSync 틱에 맞춰 1프레임당 단 1번만 실제 스크롤 반영
+    if (!this.rafScheduled) {
+      this.rafScheduled = true;
+      requestAnimationFrame(() => {
+        container.scrollTop = this.targetScrollTop;
+        this.rafScheduled = false;
+      });
+    }
+  }
+}
+`;
+
   return (
     <div className="demo-wrapper">
       <div className="demo-card">
@@ -245,94 +282,73 @@ export function countPreparedLines(
             <span>⚡ LLM 실시간 토큰 스트리밍과 VSync 보호</span>
           </div>
           <div className="demo-card-desc">
-            AI 응답이 실시간 스트리밍될 때 발생하는 레이아웃 스래싱(Layout Thrashing)을 방지하고 부드러운 스크롤을 유지하는 방법을 시뮬레이션합니다.
+            LLM 토큰이 쏟아져 들어올 때 <code>scrollHeight</code>를 즉각 읽어 발생하는 연쇄 강제 리플로우(Layout Thrashing)를 
+            Pretext의 사전 계산 산술식으로 어떻게 100% 차단하는지 체험해보세요.
           </div>
         </div>
 
         {/* 조작 패널 */}
         <div className="control-panel">
-          <div className="control-group">
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
-              className="btn btn-primary"
+              className={`btn ${isStreaming ? 'btn-primary' : ''}`}
               onClick={handleStart}
               disabled={isStreaming}
             >
-              {isStreaming ? '스트리밍 중...' : '▶ 스트리밍 시작'}
+              {isStreaming ? '⏳ 토큰 생성 스트리밍 중...' : '▶️ 스트리밍 시작'}
             </button>
-            <button className="btn" onClick={handleReset}>
+            <button className="btn" onClick={handleReset} disabled={isStreaming}>
               초기화
-            </button>
-          </div>
-
-          <div className="control-group">
-            <span className="control-label">모드 선택:</span>
-            <button
-              className={`btn ${mode === 'naive' ? 'btn-primary' : ''}`}
-              onClick={() => setMode('naive')}
-            >
-              ❌ 기존 (강제 동기 레이아웃)
             </button>
             <button
               className={`btn ${mode === 'pretext' ? 'btn-primary' : ''}`}
-              onClick={() => setMode('pretext')}
+              onClick={() => setMode(mode === 'pretext' ? 'naive' : 'pretext')}
+              disabled={isStreaming}
+              style={{
+                borderColor: mode === 'pretext' ? 'var(--accent-blue)' : '#f85149',
+                color: mode === 'pretext' ? 'var(--accent-blue)' : '#f85149',
+              }}
             >
-              ⚡ Pretext 예측
+              {mode === 'pretext' ? '⚡ Pretext 모드 (Zero Reflow)' : '💥 기존 Naive 모드 (Forced Reflow)'}
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {mode === 'naive' && isStreaming && (
-              <span key={`alert-${flashKey}`} className="reflow-warning-tag">
-                ⚠️ FORCED LAYOUT!
-              </span>
-            )}
-            {mode === 'pretext' && (
-              <span className="pure-math-tag">
-                🛡️ VSync Safe (0 Forced Layout)
-              </span>
-            )}
-            <span
-              className={`metric-pill ${mode === 'naive' && forcedReflowCount > 0 ? 'danger' : 'info'}`}
-            >
-              {mode === 'naive'
-                ? `강제 동기 레이아웃 발생: ${forcedReflowCount}회`
-                : 'Zero 강제 레이아웃 (Pretext 순수 연산)'}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span className="metric-pill">
+              토큰 수: {tokenIndex} / {STREAMING_SOURCE.length}
+            </span>
+            <span className={`metric-pill ${forcedReflowCount > 0 ? 'danger' : 'info'}`}>
+              누적 강제 리플로우: {forcedReflowCount}회
             </span>
           </div>
         </div>
 
-        {/* 스트리밍 뷰포트 (스크롤바 숨김 처리 및 안티패턴 시 경고 플래시) */}
+        {/* 스트리밍 채팅창 뷰포트 */}
         <div
-          key={mode === 'naive' ? `naive-box-${flashKey}` : 'pretext-box'}
           ref={chatBoxRef}
-          className={`streaming-viewport hide-scrollbar ${mode === 'naive' && isStreaming ? 'flash-reflow' : ''}`}
+          key={`chat-${flashKey}`}
+          className={mode === 'naive' && flashKey > 0 ? 'flash-reflow' : ''}
           style={{
             width: `${CONTAINER_WIDTH}px`,
-            maxWidth: '100%',
             height: '240px',
-            background: '#090d13',
-            border: `2px solid ${mode === 'naive' ? '#f85149' : '#58a6ff'}`,
-            borderRadius: '10px',
-            padding: '16px',
+            maxWidth: '100%',
             margin: '0 auto',
+            background: '#090d13',
+            border: `1px solid ${mode === 'naive' && flashKey > 0 ? '#f85149' : 'var(--border-color)'}`,
+            borderRadius: '12px',
+            padding: '12px',
             overflowY: 'auto',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
             fontSize: '15px',
             lineHeight: `${LINE_HEIGHT}px`,
-            color: '#f0f6fc',
             wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap',
-            boxShadow:
-              mode === 'naive'
-                ? '0 0 20px rgba(248, 81, 73, 0.3)'
-                : '0 0 16px rgba(88, 166, 255, 0.15)',
-            transition: 'border-color 0.2s',
+            color: '#e6edf3',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+            transition: 'border-color 0.15s ease',
           }}
         >
           {currentText || (
-            <span style={{ color: '#8b949e' }}>
-              '스트리밍 시작' 버튼을 눌러 시뮬레이션을 실행하세요.
+            <span style={{ color: '#484f58', fontStyle: 'italic' }}>
+              스트리밍 시작 버튼을 눌러보세요...
             </span>
           )}
           {isStreaming && (
@@ -368,6 +384,13 @@ export function countPreparedLines(
             code: streamingLibraryCodeSample,
             explanation:
               'layout()은 DOM을 전혀 건드리지 않고 캐시된 폭 배열을 바탕으로 countPreparedLines()를 실행하여 O(N) 산술 연산으로 높이(lineCount * lineHeight)를 도출합니다. DOM Dirty bit 플러시를 완벽히 우회하므로 60/120fps를 안정적으로 방어합니다.',
+          },
+          {
+            tabLabel: '⚡ 초당 50+ 토큰과 VSync 8.3ms 예산 보호',
+            filePath: 'Chromium Rendering Pipeline & VSync Budget',
+            code: streamingVsyncCodeSample,
+            explanation:
+              '초당 수십 개 토큰이 쏟아지는 고속 LLM 환경에서 DOM scrollHeight 호출을 전면 제거하고 requestAnimationFrame과 Pretext 높이 산출을 결합하여 메인 스레드 잠식을 차단합니다.',
           },
         ]}
       />

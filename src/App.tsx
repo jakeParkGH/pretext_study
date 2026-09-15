@@ -5,14 +5,15 @@ import { ChatBubbleDemo } from './demos/ChatBubbleDemo'
 import { MasonryDemo } from './demos/MasonryDemo'
 import { ShapeFlowDemo } from './demos/ShapeFlowDemo'
 import { StreamingDemo } from './demos/StreamingDemo'
+import { TanStackFeedDemo } from './demos/TanStackFeedDemo'
 
-type DemoTab = 'basic' | 'bubble' | 'masonry' | 'shape' | 'streaming'
+type DemoTab = 'basic' | 'bubble' | 'masonry' | 'shape' | 'streaming' | 'feed'
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DemoTab>(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '')
-      if (['basic', 'bubble', 'masonry', 'shape', 'streaming'].includes(hash)) {
+      if (['basic', 'bubble', 'masonry', 'shape', 'streaming', 'feed'].includes(hash)) {
         return hash as DemoTab
       }
     }
@@ -62,6 +63,12 @@ const App: React.FC = () => {
         >
           <span>⚡</span> 5. LLM 토큰 스트리밍 & VSync 보호
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'feed' ? 'active' : ''}`}
+          onClick={() => handleTabChange('feed')}
+        >
+          <span>📜</span> 6. TanStack 무한스크롤 & Transform 주입
+        </button>
       </nav>
 
       {/* 액티브 탭 컴포넌트 렌더링 */}
@@ -71,6 +78,7 @@ const App: React.FC = () => {
         {activeTab === 'masonry' && <MasonryDemo />}
         {activeTab === 'shape' && <ShapeFlowDemo />}
         {activeTab === 'streaming' && <StreamingDemo />}
+        {activeTab === 'feed' && <TanStackFeedDemo />}
       </main>
     </div>
   )

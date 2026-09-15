@@ -1,5 +1,89 @@
 import React, { useState } from 'react'
-import { Highlight, themes } from 'prism-react-renderer'
+import { Highlight, type PrismTheme } from 'prism-react-renderer'
+
+// ============================================================================
+// 🔥 One Dark Pro 테마 정의 (함수명 및 주요 구문 강조 특화)
+// ============================================================================
+export const oneDarkProTheme: PrismTheme = {
+  plain: {
+    color: '#abb2bf',
+    backgroundColor: '#1e2227', // VS Code One Dark Pro 기본 딥다크 배경
+  },
+  styles: [
+    {
+      types: ['comment', 'prolog', 'doctype', 'cdata'],
+      style: {
+        color: '#5c6370',
+        fontStyle: 'italic',
+      },
+    },
+    {
+      types: ['punctuation'],
+      style: {
+        color: '#abb2bf',
+      },
+    },
+    {
+      types: ['tag', 'property', 'deleted'],
+      style: {
+        color: '#e06c75', // 코랄 레드
+      },
+    },
+    {
+      types: ['boolean', 'number'],
+      style: {
+        color: '#d19a66', // 웜 오렌지
+      },
+    },
+    {
+      types: ['constant'],
+      style: {
+        color: '#d19a66',
+        fontWeight: '600',
+      },
+    },
+    {
+      types: ['selector', 'attr-name', 'string', 'char', 'builtin', 'inserted', 'attr-value'],
+      style: {
+        color: '#98c379', // 세이지 그린
+      },
+    },
+    {
+      types: ['operator', 'entity', 'url'],
+      style: {
+        color: '#56b6c2', // 시안
+      },
+    },
+    {
+      types: ['atrule', 'keyword'],
+      style: {
+        color: '#c678dd', // 바이올렛 퍼플
+        fontWeight: '600',
+      },
+    },
+    // 🔥 [One Dark Pro 핵심]: 함수명, 메서드, 함수 호출부를 선명한 스카이 블루(#61afef)와 볼드(700)로 강력 강조!
+    {
+      types: ['function', 'function-name', 'method'],
+      style: {
+        color: '#61afef',
+        fontWeight: '700',
+      },
+    },
+    {
+      types: ['class-name', 'maybe-class-name'],
+      style: {
+        color: '#e5c07b', // 골드 옐로우
+        fontWeight: '600',
+      },
+    },
+    {
+      types: ['regex', 'important', 'variable'],
+      style: {
+        color: '#e06c75',
+      },
+    },
+  ],
+}
 
 export interface CodeSnippet {
   tabLabel: string
@@ -132,9 +216,9 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
             {currentSnippet.explanation}
           </div>
 
-          {/* prism-react-renderer 기반 가독성 극대화 및 안전한 하이라이팅 (No dangerouslySetInnerHTML) */}
+          {/* prism-react-renderer 기반 One Dark Pro 가독성 극대화 및 안전한 하이라이팅 */}
           <Highlight
-            theme={themes.vsDark}
+            theme={oneDarkProTheme}
             code={currentSnippet.code.trim()}
             language={currentSnippet.language || 'tsx'}
           >
@@ -150,8 +234,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                   msOverflowStyle: 'none',
                   fontSize: '12.5px',
                   lineHeight: '1.6',
-                  background: '#0a0e14',
-                  fontFamily: "'Fira Code', Menlo, Monaco, Consolas, monospace",
+                  background: '#1e2227',
+                  fontFamily: "'Fira Code', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace",
                 }}
               >
                 {tokens.map((line, i) => (
@@ -173,7 +257,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                         minWidth: '32px',
                         paddingRight: '16px',
                         textAlign: 'right',
-                        color: '#484f58',
+                        color: '#4b5263',
                         userSelect: 'none',
                         fontSize: '11.5px',
                       }}
@@ -184,9 +268,29 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                       className="code-line-content"
                       style={{ flex: 1, whiteSpace: 'pre' }}
                     >
-                      {line.map((token, key) => (
-                        <span key={key} {...getTokenProps({ token })} />
-                      ))}
+                      {line.map((token, key) => {
+                        const tokenProps = getTokenProps({ token })
+                        const isFunction =
+                          token.types.includes('function') ||
+                          token.types.includes('function-name') ||
+                          token.types.includes('method')
+                        return (
+                          <span
+                            key={key}
+                            {...tokenProps}
+                            style={{
+                              ...tokenProps.style,
+                              ...(isFunction
+                                ? {
+                                    color: '#61afef',
+                                    fontWeight: 700,
+                                    textShadow: '0 0 10px rgba(97, 175, 239, 0.35)',
+                                  }
+                                : {}),
+                            }}
+                          />
+                        )
+                      })}
                     </span>
                   </div>
                 ))}

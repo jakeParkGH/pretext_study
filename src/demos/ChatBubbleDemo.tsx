@@ -163,6 +163,41 @@ export function walkLineRanges(
 // - walkLineRanges()는 문자열 메모리 할당 비용이 0이므로 8회의 탐색 전체가 0.001ms 미만에 끝남!
 `;
 
+  const bubbleWastedSpaceCodeSample = `// ------------------------------------------------------------------
+// [CSS max-width 낭비 여백(Wasted Space)의 원인과 Pretext의 수학적 해결]
+// ------------------------------------------------------------------
+
+/* ❌ 1. 기존 CSS의 근본적 한계: Intrinsic Sizing Spec의 제약
+ * CSS에서 max-width: 70%가 지정된 말풍선 요소는 다음과 같이 동작합니다:
+ * - 텍스트가 1줄일 때: 텍스트 너비만큼만 컨테이너 너비가 형성됨 (정상)
+ * - 텍스트가 2줄 이상으로 줄바꿈될 때:
+ *   브라우저는 각 줄 중 '가장 긴 줄'의 너비로 박스를 줄이지(shrink-wrap) 않고,
+ *   허용된 최대 너비(max-width)까지 박스 너비를 최대로 확장해 버립니다!
+ * -> 결과: 텍스트 오른쪽 끝과 말풍선 테두리 사이에 거대한 낭비 여백(Wasted Space) 발생!
+ */
+
+/* ✅ 2. Pretext의 수학적 Shrink-Wrap 해결책:
+ * layout() 연산으로 줄 수 변화 없는 최소 폭(lo)을 구한 뒤 인라인 스타일로 정확히 주입!
+ */
+function ChatBubble({ message, maxWidth }) {
+  // 1) 텍스트가 동일한 줄 수를 유지하는 가장 타이트한 너비(tightWidth) 도출
+  const tightWidth = findTightWidth(message.prepared, maxWidth);
+
+  return (
+    <div
+      style={{
+        // 🚀 브라우저의 어색한 max-width 대신 1px 오차 없는 순수 계산 너비 주입!
+        width: \`\${tightWidth}px\`,
+        borderRadius: '16px',
+        padding: '10px 14px',
+      }}
+    >
+      {message.text}
+    </div>
+  );
+}
+`;
+
   return (
     <div className="demo-wrapper">
       <div className="demo-card">
@@ -178,55 +213,59 @@ export function walkLineRanges(
         {/* 조작 패널 */}
         <div className="control-panel">
           <div className="control-group">
-            <span className="control-label">채팅창 폭: {chatWidth}px</span>
+            <span className="control-label">채팅창 너비: {chatWidth}px</span>
             <input
               type="range"
-              min={320}
-              max={650}
+              min={340}
+              max={680}
               value={chatWidth}
               onChange={(e) => setChatWidth(Number(e.target.value))}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className={`btn ${usePretextFit ? 'btn-primary' : ''}`}
               onClick={() => setUsePretextFit(!usePretextFit)}
             >
-              {usePretextFit ? '✨ Pretext Fit 적용 중' : '❌ 일반 CSS (여백 낭비)'}
+              {usePretextFit ? '⚡ Pretext 타이트 피트 활성화' : '❌ 기존 CSS max-width 모드'}
             </button>
-            <span className={`metric-pill ${usePretextFit ? '' : 'danger'}`}>
-              절약된 낭비 여백: {usePretextFit ? `${bubbleCalculations.totalWasted}px` : '0px'}
+            <span className={`metric-pill ${bubbleCalculations.totalWasted > 0 ? 'danger' : 'success'}`}>
+              낭비된 총 여백: {bubbleCalculations.totalWasted}px
             </span>
           </div>
         </div>
 
-        {/* 채팅창 렌더링 뷰포트 */}
+        {/* 채팅창 뷰포트 */}
         <div
           className="chat-container"
           style={{ width: `${chatWidth}px`, maxWidth: '100%', margin: '0 auto' }}
         >
           {bubbleCalculations.items.map((item) => {
-            const displayWidth = usePretextFit ? item.tightWidth : item.cssWidth
+            const currentWidth = usePretextFit ? item.tightWidth : item.cssWidth
             const wastedDiff = item.cssWidth - item.tightWidth
 
             return (
               <div
                 key={item.id}
-                className={`chat-row ${item.isUser ? 'user' : 'bot'}`}
+                className={`chat-row ${item.isUser ? 'user' : 'other'}`}
               >
                 <div
-                  className={`bubble ${item.isUser ? 'user' : 'bot'}`}
+                  className={`chat-bubble ${item.isUser ? 'user' : 'other'}`}
                   style={{
-                    width: `${displayWidth}px`,
-                    padding: `${PADDING_V}px ${PADDING_H}px`,
-                    fontSize: '14px',
-                    lineHeight: `${LINE_HEIGHT}px`,
+                    width: `${currentWidth}px`,
+                    transition: 'width 0.15s ease-out',
                   }}
                 >
-                  {item.text}
+                  <div>{item.text}</div>
+                  <div className="chat-bubble-meta">
+                    {usePretextFit ? (
+                      <span>⚡ 최적 폭: {item.tightWidth}px (이진탐색 {item.iterations}회)</span>
+                    ) : (
+                      <span>⚠️ CSS 폭: {item.cssWidth}px (낭비 {wastedDiff}px)</span>
+                    )}
+                  </div>
 
-                  {/* 일반 CSS 모드일 때 우측 낭비되는 공간을 빨간색 해칭으로 시각화 */}
                   {!usePretextFit && wastedDiff > 0 && (
                     <div
                       className="wasted-space-indicator"
@@ -256,6 +295,12 @@ export function walkLineRanges(
             filePath: 'pretext/src/layout.ts (walkLineRanges)',
             code: bubbleLibraryCodeSample,
             explanation: 'walkLineRanges()는 단 1개의 객체를 재사용하고 문자열을 전혀 생성하지 않아, 루프를 수십 번 반복해도 GC 렉이 전혀 발생하지 않습니다.',
+          },
+          {
+            tabLabel: '📐 CSS max-width 낭비 여백 메커니즘',
+            filePath: 'W3C CSS Intrinsic & Shrink-Wrap Specification',
+            code: bubbleWastedSpaceCodeSample,
+            explanation: 'CSS의 Intrinsic Sizing 알고리즘 한계로 인해 발생하는 다중 라인 우측 빈 여백을 Pretext의 수학적 타이트 피트로 어떻게 극복하는지 설명합니다.',
           },
         ]}
       />

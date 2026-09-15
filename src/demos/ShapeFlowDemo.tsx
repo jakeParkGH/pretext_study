@@ -294,6 +294,26 @@ export function layoutNextLine(
 //    - DOM 측정 없는 순수 산술 연산이므로 드래그 중에도 항상 완벽한 60fps를 유지함!
 `;
 
+  const shapeFlowComparisonCodeSample = `// ------------------------------------------------------------------
+// [CSS shape-outside vs Pretext 커서 기반 슬롯 라우팅 비교]
+// ------------------------------------------------------------------
+
+/* ❌ 1. CSS의 태생적 한계: shape-outside & float
+ * - float: left 또는 float: right 중 하나만 선택 가능.
+ *   장애물 좌측과 우측 양쪽 모두에 텍스트를 채우는 '양방향 동시 래핑'이 웹 표준 CSS만으로는 원천 불가!
+ * - 장애물 위치를 JS(마우스 드래그)로 변경할 때마다:
+ *   브라우저 메인 스레드는 전체 DOM 트리의 인라인 포맷팅 컨텍스트(IFC)를 무효화하여
+ *   심각한 프레임 드랍(60fps -> 15fps)과 배터리 소모를 유발함.
+ */
+
+/* ✅ 2. Pretext 커서 기반 다중 슬롯 라우팅 (Cursor Slot Routing)
+ * - 기하학 공식으로 라인 밴드와 장애물의 교집합을 계산하여 좌/우 슬롯(Interval)으로 분할.
+ * - 직전 슬롯에서 단어가 끝난 커서(cursor.end)를 다음 슬롯의 시작점으로 주입!
+ * - DOM 레이아웃 트리가 전혀 관여하지 않으므로:
+ *   마우스나 터치로 원형/다각형 오브젝트를 아무리 빠르게 휘저어도 60fps 무감속 유지!
+ */
+`;
+
   return (
     <div className="demo-wrapper">
       <div className="demo-card">
@@ -496,6 +516,12 @@ export function layoutNextLine(
             filePath: 'pretext/src/layout.ts (layoutNextLine)',
             code: shapeFlowLibraryCodeSample,
             explanation: 'CSS float는 구조상 단방향 래핑만 가능하지만, Pretext는 순수 산술 연산으로 다중 슬롯에 커서를 넘길 수 있어 60fps 양방향 실시간 래핑이 가능합니다.',
+          },
+          {
+            tabLabel: '🌊 CSS shape-outside vs Pretext 비교',
+            filePath: 'W3C CSS Shapes Module vs Pretext Geometry',
+            code: shapeFlowComparisonCodeSample,
+            explanation: 'CSS shape-outside의 단방향 제약 및 레이아웃 스래싱 한계와, Pretext 커서 라우팅의 양방향 래핑 및 60fps 성능 이점을 비교 분석합니다.',
           },
         ]}
       />

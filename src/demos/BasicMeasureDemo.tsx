@@ -129,6 +129,35 @@ function appendWholeSegment(segmentIndex: number, width: number): void {
 }
 `;
 
+  const cssEmulationCodeSample = `// -------------------------------------------------------------
+// [@chenglou/pretext 내부: CSS white-space & UAX #14 에뮬레이션]
+// 파일: pretext/src/analysis.ts & line-break.ts
+// -------------------------------------------------------------
+
+// 1. 세그먼트의 줄바꿈 특성을 나타내는 내부 모델 (SegmentBreakKind)
+export type SegmentBreakKind =
+  | 'text'              // 일반 단어 (줄바꿈 불가 단위)
+  | 'space'             // 공백 문자 (CSS 줄 끝에서 너비 0으로 무시되는 후행 공백 대상)
+  | 'tab'               // 탭 문자
+  | 'mandatory-break'   // \\n 강제 개행
+  | 'soft-hyphen'       // 소프트 하이픈 (줄 끝에서만 하이픈 글리프로 나타남)
+  | 'zero-width-space'; // 너비 없는 줄바꿈 가능 지점 (ZWSP)
+
+// 2. CSS white-space의 '후행 공백 무시(Trailing Whitespace Trimming)' 에뮬레이션
+// 브라우저는 줄 끝에 위치한 스페이스(' ')가 maxWidth를 넘어가더라도 다음 줄로 넘기지 않고
+// 해당 라인의 가용 폭을 초과하는 공백 너비를 시각적으로 무시(Trim)합니다.
+function commitLineWithTrailingSpaces(
+  lineW: number,
+  lastVisibleEnd: number,
+  trailingSpacesW: number
+): void {
+  // ⚡ Pretext는 줄 끝에 매달린 'space' 세그먼트들의 너비를 lineW에서 제외하여
+  // 브라우저 텍스트 렌더러와 1px의 오차도 없는 완벽한 줄바꿈 높이를 도출합니다!
+  const actualLineWidth = lineW - trailingSpacesW;
+  recordLine(actualLineWidth);
+}
+`;
+
   return (
     <div className="demo-wrapper">
       <div className="demo-card">
@@ -168,55 +197,47 @@ function appendWholeSegment(segmentIndex: number, width: number): void {
         </div>
 
         {/* 인터랙티브 뷰포트 비교 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-          {/* Pretext 가상 예측 박스 */}
-          <div style={{ background: '#090d13', padding: '16px', borderRadius: '8px', border: '1px solid #30363d', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <strong style={{ fontSize: '13px', color: '#58a6ff' }}>
-                🚀 Pretext 사전 연산 (Zero DOM)
-              </strong>
-              <span className="pure-math-tag">
-                ⚡ 0ms Pure Math
+        <div className="side-by-side" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          {/* Pretext 뷰포트 */}
+          <div className="viewport-box" style={{ width: `${containerWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
+            <div className="viewport-label">
+              <span>⚡ Pretext 순수 산술식 높이</span>
+              <span key={mathFlashKey} className="flash-badge">
+                {pretextResult.height}px ({pretextResult.lineCount}줄)
               </span>
             </div>
             <div
-              key={`math-${mathFlashKey}`}
-              className="flash-math"
               style={{
-                width: `${containerWidth}px`,
-                maxWidth: '100%',
-                background: 'rgba(88, 166, 255, 0.05)',
-                border: '1px dashed #58a6ff',
+                height: `${pretextResult.height}px`,
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--accent-blue)',
                 padding: '12px',
                 borderRadius: '6px',
                 fontSize: '16px',
                 lineHeight: `${LINE_HEIGHT}px`,
                 wordBreak: 'break-word',
-                transition: 'border-color 0.2s',
+                transition: 'height 0.1s ease',
               }}
             >
               {text}
             </div>
+            <div style={{ marginTop: '8px', fontSize: '11px', color: '#8b949e', textAlign: 'right' }}>
+              연산 소요 시간: {pretextResult.elapsedUs} µs (0 DOM Reflow)
+            </div>
           </div>
 
-          {/* 실제 브라우저 DOM 렌더링 박스 (강제 리플로우 시 빨간색 플래시 발동) */}
-          <div style={{ background: '#090d13', padding: '16px', borderRadius: '8px', border: '1px solid #30363d', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <strong style={{ fontSize: '13px', color: '#3fb950' }}>
-                🖥️ 브라우저 실제 DOM (Native)
-              </strong>
-              <span key={`tag-${domFlashKey}`} className="reflow-warning-tag">
-                🔥 FORCED REFLOW!
+          {/* 브라우저 실제 DOM 뷰포트 */}
+          <div className="viewport-box" style={{ width: `${containerWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
+            <div className="viewport-label">
+              <span>🔥 브라우저 실제 offsetHeight</span>
+              <span key={domFlashKey} className="flash-badge danger">
+                {domMeasuredHeight}px
               </span>
             </div>
             <div
-              key={`dom-${domFlashKey}`}
               ref={domTargetRef}
-              className="flash-reflow"
               style={{
-                width: `${containerWidth}px`,
-                maxWidth: '100%',
-                background: 'rgba(248, 81, 73, 0.05)',
+                background: 'var(--bg-secondary)',
                 border: '1px solid rgba(248, 81, 73, 0.6)',
                 padding: '12px',
                 borderRadius: '6px',
@@ -249,6 +270,12 @@ function appendWholeSegment(segmentIndex: number, width: number): void {
             filePath: 'pretext/src/layout.ts & measurement.ts',
             code: libraryCodeSample,
             explanation: 'OffscreenCanvas를 써서 DOM Tree Invalidation을 피하고, 2단계 Map 캐싱과 단순 누적 숫자 덧셈(lineW += width)으로 극단적인 속도를 냅니다.',
+          },
+          {
+            tabLabel: '🔠 CSS 줄바꿈 & UAX #14 에뮬레이션',
+            filePath: 'pretext/src/analysis.ts & line-break.ts',
+            code: cssEmulationCodeSample,
+            explanation: 'Pretext는 브라우저 DOM 없이도 CSS white-space의 공백 병합, 줄 끝 후행 공백(trailing space) 무시, UAX #14 줄바꿈 규칙을 100% 동일하게 에뮬레이션합니다.',
           },
         ]}
       />

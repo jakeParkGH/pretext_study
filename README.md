@@ -28,7 +28,8 @@ sample/
 │   │   ├── ChatBubbleDemo.tsx     # 2. 동적 채팅 말풍선 여백 최적화 (이진 탐색)
 │   │   ├── MasonryDemo.tsx        # 3. 선제적 메이슨리 레이아웃 (Zero CLS)
 │   │   ├── ShapeFlowDemo.tsx      # 4. 자유 형태 텍스트 래핑 (커서 기반 장애물 회피)
-│   │   └── StreamingDemo.tsx      # 5. LLM 실시간 토큰 스트리밍 & VSync 보호
+│   │   ├── StreamingDemo.tsx      # 5. LLM 실시간 토큰 스트리밍 & VSync 보호
+│   │   └── TanStackFeedDemo.tsx   # 6. TanStack Virtual 무한스크롤 & Transform 좌표 주입
 │   ├── components/
 │   │   ├── CodeViewer.tsx         # 코드 및 상세 주석 학습용 뷰어
 │   │   └── Header.tsx             # 헤더
@@ -42,7 +43,7 @@ sample/
 
 ---
 
-## 💡 포함된 5가지 핵심 데모
+## 💡 포함된 6가지 핵심 데모
 
 1. **Cold Path vs Hot Path 성능 측정 ([`BasicMeasureDemo.tsx`](src/demos/BasicMeasureDemo.tsx))**
    - 1회성 전처리 `prepare()`와 마이크로초(0.0002ms) 순수 산술 연산 `layout()`의 성능 측정
@@ -63,3 +64,7 @@ sample/
 5. **LLM 실시간 토큰 스트리밍 & VSync 보호 ([`StreamingDemo.tsx`](src/demos/StreamingDemo.tsx))**
    - 토큰 유입 시 `scrollTop = scrollHeight`로 인한 초당 수십 회의 하드 리플로우 문제 시뮬레이션
    - Pretext 순수 연산 기반 높이 예측을 통한 UI 스레드 보호 및 부드러운 스크롤 구현
+
+6. **TanStack Virtual 무한스크롤 & Transform 좌표 주입 ([`TanStackFeedDemo.tsx`](src/demos/TanStackFeedDemo.tsx))**
+   - 현업 표준 가상화 라이브러리(`@tanstack/react-virtual`)의 `estimateSize`에 Pretext 사전 계산 배열을 100% 정밀 주입
+   - 동적 DOM 역측정(`measureElement`)을 원천 제거하고 `transform: translate3d(0, y, 0)`로 브라우저 GPU 합성(Composite) 단계로 직행하여 120Hz 무감속 무한스크롤 실시간 검증

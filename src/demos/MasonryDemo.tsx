@@ -215,6 +215,32 @@ export type PreparedText = {
 // - 결과적으로 50~100개 카드의 전체 레이아웃 계산이 1ms 안에 완료됩니다!
 `;
 
+  const masonryComparisonCodeSample = `// ------------------------------------------------------------------
+// [전통적 DOM 역측정 메이슨리 vs Pretext 선제적 메이슨리 비교]
+// ------------------------------------------------------------------
+
+/* ❌ 1. 기존 DOM 기반 메이슨리 (ImagesLoaded / Masonry.js)
+ * 파이프라인:
+ * 1) 카드를 DOM에 임시 마운트 (초기 위치 모름 -> 화면 깜빡임/FOUC 발생)
+ * 2) card.offsetHeight를 호출하여 각 카드 높이 측정
+ *    💥 [치명적 병목]: 카드가 100개면 단일 프레임 안에서 100번의
+ *       Blink 엔진 Document::UpdateStyleAndLayout() 강제 동기 레이아웃 유발!
+ * 3) 측정된 높이를 바탕으로 top/left 좌표 재계산
+ * 4) 카드가 화면에서 덜컹거리며 이동 (누적 레이아웃 시프트 / CLS 발생)
+ */
+
+/* ✅ 2. Pretext 선제적 메이슨리 (Zero-DOM Pipeline)
+ * 파이프라인:
+ * 1) [Cold Path]: 카드 데이터 생성 시 텍스트 1회 prepare() (메모리 보관)
+ * 2) [Hot Path]: 컨테이너 너비 변경 시 순수 산술식으로 모든 카드 (x, y, height) 사전 도출
+ *    - 이미지: 너비 / aspectRatio (0ms)
+ *    - 텍스트: layout(prepared, width, lineHeight) (0.0002ms)
+ *    - 고정 UI: 패딩 + 여백 + 보더 (0ms)
+ * 3) [Paint]: 브라우저가 화면을 그리는 첫 번째 프레임(First Paint)부터
+ *    모든 카드가 완벽한 최종 절대 좌표(x, y)에 마운트되어 CLS 0 및 리플로우 0 보장!
+ */
+`;
+
   return (
     <div className="demo-wrapper">
       <div className="demo-card">
@@ -252,91 +278,102 @@ export type PreparedText = {
           </div>
 
           <div className="control-group">
-            <span className="control-label">뷰포트 폭: {viewportWidth}px</span>
+            <span className="control-label">뷰포트 너비: {viewportWidth}px</span>
             <input
               type="range"
               min={500}
-              max={1000}
+              max={950}
               value={viewportWidth}
               onChange={(e) => setViewportWidth(Number(e.target.value))}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="metric-pill info">
+              ⚡ Pretext 사전 연산: {masonryLayout.elapsedUs} µs
+            </span>
             <button
-              className={`btn ${isSimulatingDom ? 'btn-primary' : ''}`}
+              className="btn"
               onClick={handleSimulateDomReflow}
               disabled={isSimulatingDom}
+              style={{ borderColor: '#f85149', color: '#f85149' }}
             >
-              {isSimulatingDom ? '🔥 강제 동기 레이아웃 연쇄 발생 중...' : '💥 DOM 역측정 시뮬레이션'}
+              {isSimulatingDom ? '⏳ 리플로우 시뮬레이션 중...' : '🔥 기존 DOM 역측정 리플로우 시뮬레이션'}
             </button>
-
-            <span className="metric-pill info">
-              ⚡ Pretext 연산: {masonryLayout.elapsedUs} µs
-            </span>
           </div>
         </div>
 
-        {/* 메이슨리 캔버스 */}
+        {/* 메이슨리 뷰포트 */}
         <div
-          className="masonry-canvas"
           style={{
-            height: `${masonryLayout.totalHeight}px`,
+            position: 'relative',
             width: `${viewportWidth}px`,
+            height: `${masonryLayout.totalHeight}px`,
             maxWidth: '100%',
             margin: '0 auto',
+            transition: 'height 0.2s ease',
           }}
         >
           {masonryLayout.positioned.map((card) => {
-            const isReflowingThisCard = simulatedReflowCardId === card.id
+            const isReflowing = simulatedReflowCardId === card.id
 
             return (
               <div
-                key={`${card.id}-${mathFlashKey}-${simulatedReflowCardId}`}
-                className={`masonry-item ${isReflowingThisCard ? 'flash-reflow' : 'flash-math'}`}
+                key={card.id}
+                className={isReflowing ? 'flash-reflow' : ''}
                 style={{
+                  position: 'absolute',
                   transform: `translate3d(${card.x}px, ${card.y}px, 0)`,
                   width: `${card.width}px`,
                   height: `${card.height}px`,
-                  border: isReflowingThisCard ? '2px solid #f85149' : undefined,
-                  boxShadow: isReflowingThisCard ? '0 0 24px rgba(248, 81, 73, 0.7)' : undefined,
+                  background: 'var(--bg-secondary)',
+                  border: `1px solid ${isReflowing ? '#f85149' : 'var(--border-color)'}`,
+                  borderRadius: '10px',
+                  padding: `${CARD_PADDING}px`,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  transition: 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.15s ease',
+                  overflow: 'hidden',
                 }}
               >
                 <div
                   style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     height: `${META_HEIGHT}px`,
-                    boxSizing: 'border-box',
+                    marginBottom: `${FLEX_GAP}px`,
                   }}
                 >
                   <span
                     style={{
                       fontSize: '11px',
                       fontWeight: 700,
-                      lineHeight: '14px',
-                      color: isReflowingThisCard ? '#f85149' : card.color,
-                      background: 'rgba(255, 255, 255, 0.06)',
+                      color: card.color,
+                      background: `${card.color}22`,
                       padding: '2px 8px',
                       borderRadius: '4px',
+                      border: `1px solid ${card.color}44`,
                     }}
                   >
-                    {isReflowingThisCard ? '🔥 FORCED REFLOW!' : card.tag}
+                    #{card.tag}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#8b949e', lineHeight: '14px' }}>#{card.id}</span>
+                  <span style={{ fontSize: '11px', color: '#8b949e', fontFamily: 'monospace' }}>
+                    Y: {Math.round(card.y)}px
+                  </span>
                 </div>
-                <strong
+
+                <h3
                   style={{
                     fontSize: '15px',
                     fontWeight: 700,
                     lineHeight: `${TITLE_LINE_HEIGHT}px`,
-                    color: '#f0f6fc',
-                    wordBreak: 'break-word',
+                    color: 'var(--text-main)',
+                    marginBottom: `${FLEX_GAP}px`,
                   }}
                 >
                   {card.title}
-                </strong>
+                </h3>
+
                 <p
                   style={{
                     fontSize: '14px',
@@ -368,6 +405,12 @@ export type PreparedText = {
             filePath: 'pretext/src/layout.ts (PreparedCore)',
             code: masonryLibraryCodeSample,
             explanation: 'PreparedCore는 객체 대신 평탄한 숫자 병렬 배열(widths: number[])을 사용하여 V8 엔진 캐시 히트율을 극대화하고 메모리 오버헤드를 0으로 줄입니다.',
+          },
+          {
+            tabLabel: '💥 DOM 역측정 vs Pretext 비교',
+            filePath: 'Performance & Pipeline Architecture',
+            code: masonryComparisonCodeSample,
+            explanation: '기존의 ImagesLoaded / offsetHeight 측정 방식이 왜 연쇄 레이아웃 스래싱을 일으키는지, Pretext의 Zero-DOM 파이프라인이 왜 무감속인지 비교합니다.',
           },
         ]}
       />
