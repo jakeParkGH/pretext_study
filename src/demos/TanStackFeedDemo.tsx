@@ -144,6 +144,25 @@ export const TanStackFeedDemo: React.FC = () => {
   const [recentlyMeasuredId, setRecentlyMeasuredId] = useState<number | null>(null)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.min(560, window.innerWidth - 40) : 560
+  )
+
+  useEffect(() => {
+    if (!wrapperRef.current) return
+    const updateWidth = () => {
+      if (wrapperRef.current) {
+        setMaxAvailableWidth(Math.floor(wrapperRef.current.clientWidth))
+      }
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(wrapperRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const effectiveFeedWidth = Math.max(260, Math.min(feedWidth, maxAvailableWidth))
 
   // ============================================================================
   // [Pretext 핫패스 연산]: 너비 변화 또는 아이템 추가 시 각 카드의 정확한 높이 배열 산출
@@ -153,7 +172,7 @@ export const TanStackFeedDemo: React.FC = () => {
     const t0 = performance.now()
 
     // 카드의 텍스트 영역 실제 가용 폭
-    const textWidth = Math.max(100, feedWidth - CARD_PADDING * 2 - 2)
+    const textWidth = Math.max(80, effectiveFeedWidth - CARD_PADDING * 2 - 2)
 
     const heights = new Float64Array(items.length)
 
@@ -173,7 +192,7 @@ export const TanStackFeedDemo: React.FC = () => {
     const us = ((t1 - t0) * 1000).toFixed(2)
 
     return { precalculatedHeights: heights, calcTimeUs: us }
-  }, [items, feedWidth])
+  }, [items, effectiveFeedWidth])
 
   // ============================================================================
   // [TanStack Virtual 설정]
@@ -231,7 +250,7 @@ export const TanStackFeedDemo: React.FC = () => {
   // 모드 전환(Pretext ON/OFF) 또는 너비 변경 시 가상화 측정 캐시를 리셋하여 깨끗하게 재측정
   useEffect(() => {
     rowVirtualizer.measure()
-  }, [usePretextEstimate, feedWidth])
+  }, [usePretextEstimate, effectiveFeedWidth])
 
   // 전통적 동적 측정 모드일 때 DOM 역측정 및 강제 리플로우 감지
   const measureCallback = useCallback(
@@ -411,7 +430,7 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
   ]
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" ref={wrapperRef}>
       {/* 데모 헤더 */}
       <div className="demo-card">
         <div className="demo-card-header">
@@ -442,14 +461,14 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
             <label className="control-label">피드 가로 너비 (반응형 리사이즈):</label>
             <input
               type="range"
-              min={400}
+              min={260}
               max={720}
               step={10}
-              value={feedWidth}
+              value={effectiveFeedWidth}
               onChange={(e) => setFeedWidth(Number(e.target.value))}
             />
             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-blue)', minWidth: '55px' }}>
-              {feedWidth}px
+              {effectiveFeedWidth}px
             </span>
           </div>
 
@@ -650,7 +669,8 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
             ref={scrollContainerRef}
             className="virtual-scroll-container hide-scrollbar"
             style={{
-              width: `${feedWidth}px`,
+              width: `${effectiveFeedWidth}px`,
+              maxWidth: '100%',
               height: '580px',
               overflowY: 'auto',
               position: 'relative',
@@ -689,7 +709,7 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
                 }
 
                 // 이미지 높이 산술식
-                const textWidth = Math.max(100, feedWidth - CARD_PADDING * 2 - 2)
+                const textWidth = Math.max(80, effectiveFeedWidth - CARD_PADDING * 2 - 2)
                 const imageHeight = Math.round(textWidth / item.aspectRatio)
                 const isMeasuredFlashing = !usePretextEstimate && recentlyMeasuredId === item.id
 

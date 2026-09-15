@@ -80,6 +80,25 @@ export const StreamingDemo: React.FC = () => {
   const [flashKey, setFlashKey] = useState<number>(0)
 
   const chatBoxRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.min(CONTAINER_WIDTH, window.innerWidth - 40) : CONTAINER_WIDTH
+  )
+
+  useEffect(() => {
+    if (!wrapperRef.current) return
+    const updateWidth = () => {
+      if (wrapperRef.current) {
+        setMaxAvailableWidth(Math.floor(wrapperRef.current.clientWidth))
+      }
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(wrapperRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const effectiveWidth = Math.max(260, Math.min(CONTAINER_WIDTH, maxAvailableWidth))
 
   // 현재까지 수신된 텍스트
   const currentText = useMemo(() => {
@@ -116,10 +135,10 @@ export const StreamingDemo: React.FC = () => {
     } else {
       // ⚡ Pretext 패턴: DOM을 묻지 않고 layout()으로 계산된 높이 사용
       const prepared = prepare(currentText, FONT)
-      const { height } = layout(prepared, CONTAINER_WIDTH - 24, LINE_HEIGHT)
+      const { height } = layout(prepared, effectiveWidth - 24, LINE_HEIGHT)
       chatBoxRef.current.scrollTop = height
     }
-  }, [currentText, mode, tokenIndex])
+  }, [currentText, effectiveWidth, mode, tokenIndex])
 
   const handleStart = () => {
     setTokenIndex(0)
@@ -275,14 +294,14 @@ class FastStreamingScroller {
 `;
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" ref={wrapperRef}>
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
-            <span>⚡ LLM 실시간 토큰 스트리밍과 VSync 보호</span>
+            <span>⚡ LLM 토큰 스트리밍과 VSync 프레임 예산 보호</span>
           </div>
           <div className="demo-card-desc">
-            LLM 토큰이 쏟아져 들어올 때 <code>scrollHeight</code>를 즉각 읽어 발생하는 연쇄 강제 리플로우(Layout Thrashing)를 
+            매 토큰 유입 시 `scrollHeight`를 읽어 발생하는 치명적인 동기식 강제 레이아웃(Layout Thrashing)을
             Pretext의 사전 계산 산술식으로 어떻게 100% 차단하는지 체험해보세요.
           </div>
         </div>
@@ -313,7 +332,7 @@ class FastStreamingScroller {
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="metric-pill">
               토큰 수: {tokenIndex} / {STREAMING_SOURCE.length}
             </span>
@@ -329,7 +348,7 @@ class FastStreamingScroller {
           key={`chat-${flashKey}`}
           className={mode === 'naive' && flashKey > 0 ? 'flash-reflow' : ''}
           style={{
-            width: `${CONTAINER_WIDTH}px`,
+            width: `${effectiveWidth}px`,
             height: '240px',
             maxWidth: '100%',
             margin: '0 auto',

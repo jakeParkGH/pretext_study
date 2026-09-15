@@ -378,11 +378,12 @@ input[type="range"] {
   background: #090d13;
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   transition: width 0.1s ease;
+  box-sizing: border-box;
 }
 
 .chat-row {
@@ -394,6 +395,12 @@ input[type="range"] {
   justify-content: flex-end;
 }
 
+.chat-row.other {
+  justify-content: flex-start;
+}
+
+/* Chat bubble with relative positioning for wasted space overlay */
+.chat-bubble,
 .bubble {
   position: relative;
   padding: 10px 14px;
@@ -402,19 +409,36 @@ input[type="range"] {
   line-height: 20px;
   word-break: break-word;
   white-space: pre-wrap;
+  max-width: 100%;
+  box-sizing: border-box;
   transition: all 0.15s ease;
 }
 
+.chat-bubble.user,
 .bubble.user {
   background: #1f6feb;
   color: #ffffff;
   border-bottom-right-radius: 4px;
 }
 
-.bubble.bot {
+.chat-bubble.other,
+.bubble.bot,
+.bubble.other {
   background: var(--bg-tertiary);
   color: var(--text-main);
   border-bottom-left-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.chat-bubble-meta {
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  word-break: break-all;
 }
 
 .wasted-space-indicator {
@@ -426,6 +450,7 @@ input[type="range"] {
   border-left: 1px dashed rgba(248, 81, 73, 0.6);
   border-radius: 0 16px 16px 0;
   pointer-events: none;
+  max-width: 100%;
 }
 
 /* Masonry grid */
@@ -455,4 +480,101 @@ input[type="range"] {
 .masonry-item:hover {
   border-color: var(--accent-blue);
   transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   Mobile Responsive Adjustments (375px Viewport Optimization)
+   ========================================================================== */
+@media (max-width: 640px) {
+  .app-container {
+    padding: 12px 10px 60px 10px;
+  }
+
+  .app-header {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .header-title-area h1 {
+    font-size: 19px;
+    line-height: 1.35;
+  }
+
+  .header-desc {
+    font-size: 12px;
+  }
+
+  .tab-navigation {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .tab-btn {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .demo-card {
+    padding: 14px 10px;
+    border-radius: 8px;
+  }
+
+  .demo-card-title {
+    font-size: 16px;
+    flex-wrap: wrap;
+  }
+
+  .demo-card-desc {
+    font-size: 12px;
+  }
+
+  .control-panel {
+    padding: 12px 10px;
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .control-group {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .control-group input[type="range"] {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .chat-container {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .chat-bubble,
+  .bubble {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .code-viewer-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .code-viewer-header > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .code-viewer-pre {
+    font-size: 11px;
+  }
+
+  .metric-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
 }

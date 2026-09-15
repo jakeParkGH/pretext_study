@@ -11,6 +11,25 @@ export const BasicMeasureDemo: React.FC = () => {
   const [containerWidth, setContainerWidth] = useState<number>(360)
   const [text, setText] = useState<string>(SAMPLE_TEXT)
   const domTargetRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.min(360, window.innerWidth - 40) : 360
+  )
+
+  useEffect(() => {
+    if (!wrapperRef.current) return
+    const updateWidth = () => {
+      if (wrapperRef.current) {
+        setMaxAvailableWidth(Math.floor(wrapperRef.current.clientWidth))
+      }
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(wrapperRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const effectiveWidth = Math.max(180, Math.min(containerWidth, maxAvailableWidth))
 
   // ============================================================================
   // [Cold Path]: 1회성 전처리 (데이터 변경 시에만 실행)
@@ -30,11 +49,11 @@ export const BasicMeasureDemo: React.FC = () => {
   const [mathFlashKey, setMathFlashKey] = useState<number>(0)
   const pretextResult = useMemo(() => {
     const start = performance.now()
-    const result = layout(prepared, containerWidth, LINE_HEIGHT)
+    const result = layout(prepared, effectiveWidth, LINE_HEIGHT)
     const elapsedMs = performance.now() - start
     setMathFlashKey((prev) => prev + 1)
     return { ...result, elapsedUs: (elapsedMs * 1000).toFixed(2) }
-  }, [prepared, containerWidth])
+  }, [prepared, effectiveWidth])
 
   // 비교군: 기존 DOM 기반 측정 (Forced Synchronous Layout 발생)
   const [domMeasuredHeight, setDomMeasuredHeight] = useState<number>(0)
@@ -52,7 +71,7 @@ export const BasicMeasureDemo: React.FC = () => {
     setDomElapsedUs((elapsedMs * 1000).toFixed(2))
     setDomFlashKey((prev) => prev + 1)
     setTotalReflowCount((prev) => prev + 1)
-  }, [containerWidth, text])
+  }, [effectiveWidth, text])
 
   const basicCodeSample = `// -------------------------------------------------------------
 // [Pretext 기본 해결 패턴: 2-Phase Engine]
@@ -159,7 +178,7 @@ function commitLineWithTrailingSpaces(
 `;
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" ref={wrapperRef}>
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -173,17 +192,17 @@ function commitLineWithTrailingSpaces(
         {/* 조작 패널 */}
         <div className="control-panel">
           <div className="control-group">
-            <span className="control-label">컨테이너 너비: {containerWidth}px</span>
+            <span className="control-label">컨테이너 너비: {effectiveWidth}px</span>
             <input
               type="range"
-              min={200}
+              min={180}
               max={650}
-              value={containerWidth}
+              value={effectiveWidth}
               onChange={(e) => setContainerWidth(Number(e.target.value))}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <span className="metric-pill info">
               ⚡ Pretext: {pretextResult.elapsedUs} µs
             </span>
@@ -197,9 +216,9 @@ function commitLineWithTrailingSpaces(
         </div>
 
         {/* 인터랙티브 뷰포트 비교 */}
-        <div className="side-by-side" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+        <div className="side-by-side" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
           {/* Pretext 뷰포트 */}
-          <div className="viewport-box" style={{ width: `${containerWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
+          <div className="viewport-box" style={{ width: `${effectiveWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
             <div className="viewport-label">
               <span>⚡ Pretext 순수 산술식 높이</span>
               <span key={mathFlashKey} className="flash-badge">
@@ -227,7 +246,7 @@ function commitLineWithTrailingSpaces(
           </div>
 
           {/* 브라우저 실제 DOM 뷰포트 */}
-          <div className="viewport-box" style={{ width: `${containerWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
+          <div className="viewport-box" style={{ width: `${effectiveWidth}px`, maxWidth: '100%', margin: '0 auto' }}>
             <div className="viewport-label">
               <span>🔥 브라우저 실제 offsetHeight</span>
               <span key={domFlashKey} className="flash-badge danger">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
   prepareWithSegments,
   layoutNextLine,
@@ -78,10 +78,35 @@ function carveTextLineSlots(
 }
 
 export const ShapeFlowDemo: React.FC = () => {
-  // 장애물(원형 프로필/배지) 위치 및 반경 - 기본 위치 중앙(290, 190)
-  const [obstacleX, setObstacleX] = useState<number>(290)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.min(580, window.innerWidth - 40) : 580
+  )
+
+  useEffect(() => {
+    if (!wrapperRef.current) return
+    const updateWidth = () => {
+      if (wrapperRef.current) {
+        setMaxAvailableWidth(Math.floor(wrapperRef.current.clientWidth))
+      }
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(wrapperRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const effectiveWidth = Math.max(280, Math.min(CONTAINER_WIDTH, maxAvailableWidth))
+
+  // 장애물(원형 프로필/배지) 위치 및 반경 - 기본 위치 중앙
+  const [obstacleX, setObstacleX] = useState<number>(() => Math.floor(effectiveWidth / 2))
   const [obstacleY, setObstacleY] = useState<number>(190)
   const [obstacleRadius, setObstacleRadius] = useState<number>(55)
+
+  const effectiveObstacleX = Math.max(
+    obstacleRadius + 10,
+    Math.min(effectiveWidth - obstacleRadius - 10, obstacleX)
+  )
 
   // 직접 드래그앤드롭 상태
   const [isDragging, setIsDragging] = useState<boolean>(false)
@@ -105,7 +130,7 @@ export const ShapeFlowDemo: React.FC = () => {
     let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
     let lineTop = 14
     const maxY = CONTAINER_HEIGHT - 12
-    const baseInterval: Interval = { left: 14, right: CONTAINER_WIDTH - 14 }
+    const baseInterval: Interval = { left: 14, right: effectiveWidth - 14 }
 
     while (lineTop + LINE_HEIGHT <= maxY) {
       const bandTop = lineTop
@@ -114,7 +139,7 @@ export const ShapeFlowDemo: React.FC = () => {
       // 1. 현재 라인 높이 밴드와 원형 장애물과의 수평 침범 구간(blocked) 계산
       const blocked: Interval[] = []
       const circleInterval = circleIntervalForBand(
-        obstacleX,
+        effectiveObstacleX,
         obstacleY,
         obstacleRadius,
         bandTop,
@@ -202,7 +227,7 @@ export const ShapeFlowDemo: React.FC = () => {
     const dy = e.clientY - dragStartRef.current.startY
 
     const minX = Math.round(obstacleRadius + 10)
-    const maxX = Math.round(CONTAINER_WIDTH - obstacleRadius - 10)
+    const maxX = Math.round(effectiveWidth - obstacleRadius - 10)
     const minY = Math.round(obstacleRadius + 10)
     const maxY = Math.round(CONTAINER_HEIGHT - obstacleRadius - 10)
 
@@ -315,7 +340,7 @@ export function layoutNextLine(
 `;
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" ref={wrapperRef}>
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -341,19 +366,19 @@ export function layoutNextLine(
           </div>
           <div className="metric-pill" style={{ color: 'var(--accent-blue)', borderColor: 'rgba(88, 166, 255, 0.3)', background: 'rgba(88, 166, 255, 0.15)' }}>
             <span>오브젝트 좌표:</span>
-            <strong>X: {obstacleX}px, Y: {obstacleY}px (R: {obstacleRadius}px)</strong>
+            <strong>X: {effectiveObstacleX}px, Y: {obstacleY}px (R: {obstacleRadius}px)</strong>
           </div>
         </div>
 
         {/* 조작 패널 */}
         <div className="control-panel">
           <div className="control-group">
-            <span className="control-label">장애물 X 위치: {obstacleX}px</span>
+            <span className="control-label">장애물 X 위치: {effectiveObstacleX}px</span>
             <input
               type="range"
-              min={70}
-              max={510}
-              value={obstacleX}
+              min={Math.round(obstacleRadius + 10)}
+              max={Math.round(effectiveWidth - obstacleRadius - 10)}
+              value={effectiveObstacleX}
               onChange={(e) => setObstacleX(Number(e.target.value))}
             />
           </div>
@@ -390,7 +415,7 @@ export function layoutNextLine(
             type="button"
             className="tab-btn"
             style={{ padding: '4px 12px', fontSize: '12px' }}
-            onClick={() => { setObstacleX(290); setObstacleY(190); }}
+            onClick={() => { setObstacleX(Math.floor(effectiveWidth / 2)); setObstacleY(190); }}
           >
             🎯 중앙 (양방향 분할 래핑)
           </button>
@@ -398,7 +423,7 @@ export function layoutNextLine(
             type="button"
             className="tab-btn"
             style={{ padding: '4px 12px', fontSize: '12px' }}
-            onClick={() => { setObstacleX(130); setObstacleY(190); }}
+            onClick={() => { setObstacleX(Math.max(obstacleRadius + 10, Math.floor(effectiveWidth * 0.25))); setObstacleY(190); }}
           >
             ⬅️ 좌측 배치 (우측 래핑)
           </button>
@@ -406,7 +431,7 @@ export function layoutNextLine(
             type="button"
             className="tab-btn"
             style={{ padding: '4px 12px', fontSize: '12px' }}
-            onClick={() => { setObstacleX(450); setObstacleY(190); }}
+            onClick={() => { setObstacleX(Math.min(effectiveWidth - obstacleRadius - 10, Math.floor(effectiveWidth * 0.75))); setObstacleY(190); }}
           >
             ➡️ 우측 배치 (좌측 래핑)
           </button>
@@ -414,7 +439,7 @@ export function layoutNextLine(
             type="button"
             className="tab-btn"
             style={{ padding: '4px 12px', fontSize: '12px' }}
-            onClick={() => { setObstacleX(290); setObstacleY(90); }}
+            onClick={() => { setObstacleX(Math.floor(effectiveWidth / 2)); setObstacleY(90); }}
           >
             ⬆️ 상단 중앙
           </button>
@@ -424,7 +449,7 @@ export function layoutNextLine(
         <div
           style={{
             position: 'relative',
-            width: `${CONTAINER_WIDTH}px`,
+            width: `${effectiveWidth}px`,
             maxWidth: '100%',
             height: `${CONTAINER_HEIGHT}px`,
             background: '#090d13',
@@ -443,7 +468,7 @@ export function layoutNextLine(
             onPointerCancel={handlePointerUp}
             style={{
               position: 'absolute',
-              left: `${obstacleX - obstacleRadius}px`,
+              left: `${effectiveObstacleX - obstacleRadius}px`,
               top: `${obstacleY - obstacleRadius}px`,
               width: `${obstacleRadius * 2}px`,
               height: `${obstacleRadius * 2}px`,

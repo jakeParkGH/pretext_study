@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { prepareWithSegments, layout, walkLineRanges, type PreparedTextWithSegments } from '@chenglou/pretext'
 import { CodeViewer } from '../components/CodeViewer'
 
@@ -24,6 +24,25 @@ const PADDING_V = 10
 export const ChatBubbleDemo: React.FC = () => {
   const [chatWidth, setChatWidth] = useState<number>(480)
   const [usePretextFit, setUsePretextFit] = useState<boolean>(true)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.min(480, window.innerWidth - 40) : 480
+  )
+
+  useEffect(() => {
+    if (!wrapperRef.current) return
+    const updateWidth = () => {
+      if (wrapperRef.current) {
+        setMaxAvailableWidth(Math.floor(wrapperRef.current.clientWidth))
+      }
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(wrapperRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const effectiveChatWidth = Math.max(220, Math.min(chatWidth, maxAvailableWidth))
 
   // 1회성 전처리: 모든 메시지 텍스트를 prepareWithSegments로 변환
   const preparedList = useMemo(() => {
@@ -76,7 +95,7 @@ export const ChatBubbleDemo: React.FC = () => {
 
   // 렌더링 너비 계산
   const bubbleCalculations = useMemo(() => {
-    const bubbleMaxContentWidth = Math.floor(chatWidth * 0.75) - PADDING_H * 2
+    const bubbleMaxContentWidth = Math.max(100, Math.floor(effectiveChatWidth * 0.78) - PADDING_H * 2)
     let totalWasted = 0
 
     const items = preparedList.map((item) => {
@@ -93,7 +112,7 @@ export const ChatBubbleDemo: React.FC = () => {
     })
 
     return { items, totalWasted }
-  }, [preparedList, chatWidth])
+  }, [preparedList, effectiveChatWidth])
 
   const bubbleCodeSample = `// ------------------------------------------------------------------
 // [Pretext 채팅 말풍선 여백 최적화 알고리즘: pages/demos/bubbles-shared.ts]
@@ -199,7 +218,7 @@ function ChatBubble({ message, maxWidth }) {
 `;
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" ref={wrapperRef}>
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -213,12 +232,12 @@ function ChatBubble({ message, maxWidth }) {
         {/* 조작 패널 */}
         <div className="control-panel">
           <div className="control-group">
-            <span className="control-label">채팅창 너비: {chatWidth}px</span>
+            <span className="control-label">채팅창 너비: {effectiveChatWidth}px</span>
             <input
               type="range"
-              min={340}
+              min={220}
               max={680}
-              value={chatWidth}
+              value={effectiveChatWidth}
               onChange={(e) => setChatWidth(Number(e.target.value))}
             />
           </div>
@@ -239,7 +258,7 @@ function ChatBubble({ message, maxWidth }) {
         {/* 채팅창 뷰포트 */}
         <div
           className="chat-container"
-          style={{ width: `${chatWidth}px`, maxWidth: '100%', margin: '0 auto' }}
+          style={{ width: `${effectiveChatWidth}px`, maxWidth: '100%', margin: '0 auto' }}
         >
           {bubbleCalculations.items.map((item) => {
             const currentWidth = usePretextFit ? item.tightWidth : item.cssWidth
@@ -254,13 +273,15 @@ function ChatBubble({ message, maxWidth }) {
                   className={`chat-bubble ${item.isUser ? 'user' : 'other'}`}
                   style={{
                     width: `${currentWidth}px`,
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
                     transition: 'width 0.15s ease-out',
                   }}
                 >
                   <div>{item.text}</div>
                   <div className="chat-bubble-meta">
                     {usePretextFit ? (
-                      <span>⚡ 최적 폭: {item.tightWidth}px (이진탐색 {item.iterations}회)</span>
+                      <span>⚡ 최적 폭: {item.tightWidth}px ({item.iterations}회 탐색)</span>
                     ) : (
                       <span>⚠️ CSS 폭: {item.cssWidth}px (낭비 {wastedDiff}px)</span>
                     )}
@@ -269,7 +290,7 @@ function ChatBubble({ message, maxWidth }) {
                   {!usePretextFit && wastedDiff > 0 && (
                     <div
                       className="wasted-space-indicator"
-                      style={{ width: `${wastedDiff}px` }}
+                      style={{ width: `${Math.min(wastedDiff, currentWidth)}px`, maxWidth: '100%' }}
                       title={`낭비되는 빈 여백: ${wastedDiff}px`}
                     />
                   )}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
 import { CodeViewer } from '../components/CodeViewer'
 
@@ -66,11 +66,33 @@ const FLEX_GAP = 8
 const BORDER_WIDTH = 2
 
 export const MasonryDemo: React.FC = () => {
-  const [columns, setColumns] = useState<number>(3)
+  const [columns, setColumns] = useState<number>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 1 : 3
+  )
   const [viewportWidth, setViewportWidth] = useState<number>(850)
   const [simulatedReflowCardId, setSimulatedReflowCardId] = useState<number | null>(null)
   const [isSimulatingDom, setIsSimulatingDom] = useState<boolean>(false)
   const [mathFlashKey, setMathFlashKey] = useState<number>(0)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [maxAvailableWidth, setMaxAvailableWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? Math.min(850, window.innerWidth - 40) : 850
+  )
+
+  useEffect(() => {
+    if (!wrapperRef.current) return
+    const updateWidth = () => {
+      if (wrapperRef.current) {
+        setMaxAvailableWidth(Math.floor(wrapperRef.current.clientWidth))
+      }
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(wrapperRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const effectiveViewportWidth = Math.max(260, Math.min(viewportWidth, maxAvailableWidth))
+  const effectiveColumns = Math.max(1, effectiveViewportWidth < 400 ? Math.min(columns, 2) : columns)
 
   // [Cold Path]: 텍스트 변경 시 1회만 prepare() (타이틀과 본문 모두 사전 준비)
   const preparedCards = useMemo(() => {
@@ -89,16 +111,16 @@ export const MasonryDemo: React.FC = () => {
     setMathFlashKey((prev) => prev + 1)
     const start = performance.now()
 
-    const colWidth = (viewportWidth - (columns - 1) * GAP) / columns
-    const textWidth = Math.max(50, colWidth - CARD_PADDING * 2 - BORDER_WIDTH)
+    const colWidth = (effectiveViewportWidth - (effectiveColumns - 1) * GAP) / effectiveColumns
+    const textWidth = Math.max(40, colWidth - CARD_PADDING * 2 - BORDER_WIDTH)
 
     // 각 열의 현재 누적 높이 관리 배열
-    const colHeights = new Float64Array(columns)
+    const colHeights = new Float64Array(effectiveColumns)
 
     const positioned = preparedCards.map((card) => {
       // 1. 현재 가장 높이가 낮은 열(shortest column) 찾기
       let shortest = 0
-      for (let c = 1; c < columns; c++) {
+      for (let c = 1; c < effectiveColumns; c++) {
         if (colHeights[c] < colHeights[shortest]) shortest = c
       }
 
@@ -129,14 +151,14 @@ export const MasonryDemo: React.FC = () => {
 
     // 전체 컨테이너 높이 도출
     let totalHeight = 0
-    for (let c = 0; c < columns; c++) {
+    for (let c = 0; c < effectiveColumns; c++) {
       if (colHeights[c] > totalHeight) totalHeight = colHeights[c]
     }
 
     const elapsedUs = ((performance.now() - start) * 1000).toFixed(2)
 
     return { positioned, totalHeight, colWidth, elapsedUs }
-  }, [preparedCards, columns, viewportWidth])
+  }, [preparedCards, effectiveColumns, effectiveViewportWidth])
 
   // 기존 DOM 역측정 방식의 연쇄 리플로우(Layout Thrashing) 시각적 시뮬레이션
   const handleSimulateDomReflow = () => {
@@ -242,7 +264,7 @@ export type PreparedText = {
 `;
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" ref={wrapperRef}>
       <div className="demo-card">
         <div className="demo-card-header">
           <div className="demo-card-title">
@@ -256,34 +278,42 @@ export type PreparedText = {
         {/* 조작 패널 */}
         <div className="control-panel">
           <div className="control-group">
-            <span className="control-label">컬럼 수:</span>
-            <button
-              className={`btn ${columns === 2 ? 'btn-primary' : ''}`}
-              onClick={() => setColumns(2)}
-            >
-              2열
-            </button>
-            <button
-              className={`btn ${columns === 3 ? 'btn-primary' : ''}`}
-              onClick={() => setColumns(3)}
-            >
-              3열
-            </button>
-            <button
-              className={`btn ${columns === 4 ? 'btn-primary' : ''}`}
-              onClick={() => setColumns(4)}
-            >
-              4열
-            </button>
+            <span className="control-label">컬럼 수 ({effectiveColumns}열 적용 중):</span>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button
+                className={`btn ${effectiveColumns === 1 ? 'btn-primary' : ''}`}
+                onClick={() => setColumns(1)}
+              >
+                1열 (모바일)
+              </button>
+              <button
+                className={`btn ${effectiveColumns === 2 ? 'btn-primary' : ''}`}
+                onClick={() => setColumns(2)}
+              >
+                2열
+              </button>
+              <button
+                className={`btn ${effectiveColumns === 3 ? 'btn-primary' : ''}`}
+                onClick={() => setColumns(3)}
+              >
+                3열
+              </button>
+              <button
+                className={`btn ${effectiveColumns === 4 ? 'btn-primary' : ''}`}
+                onClick={() => setColumns(4)}
+              >
+                4열
+              </button>
+            </div>
           </div>
 
           <div className="control-group">
-            <span className="control-label">뷰포트 너비: {viewportWidth}px</span>
+            <span className="control-label">뷰포트 너비: {effectiveViewportWidth}px</span>
             <input
               type="range"
-              min={500}
+              min={260}
               max={950}
-              value={viewportWidth}
+              value={effectiveViewportWidth}
               onChange={(e) => setViewportWidth(Number(e.target.value))}
             />
           </div>
@@ -307,7 +337,7 @@ export type PreparedText = {
         <div
           style={{
             position: 'relative',
-            width: `${viewportWidth}px`,
+            width: `${effectiveViewportWidth}px`,
             height: `${masonryLayout.totalHeight}px`,
             maxWidth: '100%',
             margin: '0 auto',
