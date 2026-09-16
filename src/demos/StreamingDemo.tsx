@@ -361,38 +361,38 @@ class FastStreamingScroller {
               width: `${effectiveWidth}px`,
               height: '240px',
               maxWidth: '100%',
-            margin: '0 auto',
-            background: '#090d13',
-            border: `1px solid ${mode === 'naive' && flashKey > 0 ? '#f85149' : 'var(--border-color)'}`,
-            borderRadius: '12px',
-            padding: '12px',
-            overflowY: 'auto',
-            fontSize: '15px',
-            lineHeight: `${LINE_HEIGHT}px`,
-            wordBreak: 'break-word',
-            color: '#e6edf3',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
-            transition: 'border-color 0.15s ease',
-          }}
-        >
-          {currentText || (
-            <span style={{ color: '#484f58', fontStyle: 'italic' }}>
-              스트리밍 시작 버튼을 눌러보세요...
-            </span>
-          )}
-          {isStreaming && (
-            <span
-              style={{
-                display: 'inline-block',
-                width: '8px',
-                height: '16px',
-                background: '#58a6ff',
-                marginLeft: '4px',
-                verticalAlign: 'middle',
-                animation: 'blink 0.8s infinite',
-              }}
-            />
-          )}
+              margin: '0 auto',
+              background: '#090d13',
+              border: `1px solid ${mode === 'naive' && flashKey > 0 ? '#f85149' : 'var(--border-color)'}`,
+              borderRadius: '12px',
+              padding: '12px',
+              overflowY: 'auto',
+              fontSize: '15px',
+              lineHeight: `${LINE_HEIGHT}px`,
+              wordBreak: 'break-word',
+              color: '#e6edf3',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+              transition: 'border-color 0.15s ease',
+            }}
+          >
+            {currentText || (
+              <span style={{ color: '#484f58', fontStyle: 'italic' }}>
+                스트리밍 시작 버튼을 눌러보세요...
+              </span>
+            )}
+            {isStreaming && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: '8px',
+                  height: '16px',
+                  background: '#58a6ff',
+                  marginLeft: '4px',
+                  verticalAlign: 'middle',
+                  animation: 'blink 0.8s infinite',
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

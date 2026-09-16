@@ -1,17 +1,18 @@
 import React, { useState } from 'react'
 import { Header } from './components/Header'
 import { BasicMeasureDemo } from './demos/BasicMeasureDemo'
-import { ShapeFlowDemo } from './demos/ShapeFlowDemo'
+import { AccordionDemo } from './demos/AccordionDemo'
 import { StreamingDemo } from './demos/StreamingDemo'
 import { TanStackFeedDemo } from './demos/TanStackFeedDemo'
+import { ShapeFlowDemo } from './demos/ShapeFlowDemo'
 
-type DemoTab = 'basic' | 'shape' | 'streaming' | 'feed'
+type DemoTab = 'basic' | 'accordion' | 'streaming' | 'feed' | 'shape'
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DemoTab>(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '')
-      if (['basic', 'shape', 'streaming', 'feed'].includes(hash)) {
+      if (['basic', 'accordion', 'streaming', 'feed', 'shape'].includes(hash)) {
         return hash as DemoTab
       }
     }
@@ -38,10 +39,10 @@ const App: React.FC = () => {
           <span>❄️</span> 1. Cold/Hot Path 성능 측정
         </button>
         <button
-          className={`tab-btn ${activeTab === 'shape' ? 'active' : ''}`}
-          onClick={() => handleTabChange('shape')}
+          className={`tab-btn ${activeTab === 'accordion' ? 'active' : ''}`}
+          onClick={() => handleTabChange('accordion')}
         >
-          <span>🌊</span> 2. 자유 형태 텍스트 플로우 (커서 라우팅)
+          <span>🪗</span> 2. DOM 측정 없는 무결점 아코디언 (Zero Reflow)
         </button>
         <button
           className={`tab-btn ${activeTab === 'streaming' ? 'active' : ''}`}
@@ -55,14 +56,21 @@ const App: React.FC = () => {
         >
           <span>📜</span> 4. TanStack 무한스크롤 & Transform 주입
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'shape' ? 'active' : ''}`}
+          onClick={() => handleTabChange('shape')}
+        >
+          <span>🌊</span> 5. 자유 형태 텍스트 플로우 (커서 라우팅)
+        </button>
       </nav>
 
       {/* 액티브 탭 컴포넌트 렌더링 */}
       <main>
         {activeTab === 'basic' && <BasicMeasureDemo />}
-        {activeTab === 'shape' && <ShapeFlowDemo />}
+        {activeTab === 'accordion' && <AccordionDemo />}
         {activeTab === 'streaming' && <StreamingDemo />}
         {activeTab === 'feed' && <TanStackFeedDemo />}
+        {activeTab === 'shape' && <ShapeFlowDemo />}
       </main>
     </div>
   )
