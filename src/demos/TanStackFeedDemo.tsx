@@ -24,8 +24,8 @@ export interface PreparedFeedCard extends FeedCardData {
   preparedPrompt: PreparedText
 }
 
-const FONT = '14px "Pretendard", -apple-system, sans-serif'
-const LINE_HEIGHT = 22
+const FONT = '16px Pretendard, sans-serif'
+const LINE_HEIGHT = 24
 const CARD_PADDING = 16
 const GAP = 16
 // 고정 UI 오버헤드:
@@ -124,8 +124,11 @@ function generateItems(startIndex: number, count: number): PreparedFeedCard[] {
       category: seed.category,
       version: 'v6.1',
       likes,
-      // [Cold Path]: 생성 시 1회만 prepare() 호출 (메모리 캐싱)
-      preparedPrompt: prepare(seed.prompt, FONT),
+      // [Cold Path]: 생성 시 1회만 prepare() 호출 (Pretendard 16px + pre-wrap + keep-all 캐싱)
+      preparedPrompt: prepare(seed.prompt, FONT, {
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'keep-all',
+      }),
     }
   })
 }
@@ -329,18 +332,18 @@ export const TanStackFeedDemo: React.FC = () => {
       title: 'TanStack Virtual과 Pretext의 무한스크롤 결합 패턴',
       filePath: 'src/demos/TanStackFeedDemo.tsx',
       language: 'tsx',
-      code: `// 1. [Cold Path]: 텍스트 변경 시 1회만 prepare() (단어 폭 캐싱)
-const preparedItems = items.map(item => ({
-  ...item,
-  preparedPrompt: prepare(item.prompt, '14px Pretendard'),
-}));
+      code: `// 1. [Cold Path]: 텍스트 변경 시 1회만 prepare() (Pretendard 폰트 + pre-wrap + keep-all 옵션 적용)
+const prepared = prepare(text, '16px Pretendard, sans-serif', {
+  whiteSpace: 'pre-wrap',   // 줄바꿈/공백 유지
+  wordBreak: 'keep-all',    // 한글 단어 단위 줄바꿈 에뮬레이션
+});
 
 // 2. [Hot Path]: 컨테이너 너비(width) 변경 시 순수 산술 연산으로 전체 높이 배열 사전 생성 (0.02ms)
 const precalculatedHeights = useMemo(() => {
   const textWidth = feedWidth - PADDING_HORIZ;
   return items.map(item => {
     const imageHeight = textWidth / item.aspectRatio; // 📐 종횡비 수학 나눗셈
-    const { height: textHeight } = layout(item.preparedPrompt, textWidth, 22); // ⚡ Pretext 산술식
+    const { height: textHeight } = layout(item.preparedPrompt, textWidth, 24); // ⚡ Pretext 산술식
     return FIXED_OVERHEAD + imageHeight + textHeight; // 🎯 1px 오차 없는 정확한 높이
   });
 }, [items, feedWidth]);
@@ -418,7 +421,8 @@ const imageHeight = Math.round(cardWidth / item.aspectRatio);
 const fixedUiHeight = 24 + 44 + 10 + 12 + 12 + 28 + (16 * 2) + 2; // = 164px
 
 // 3. [유일한 난제였던 지점] 텍스트 높이 -> Pretext가 DOM 없이 순수 숫자로 해결!
-const { height: promptHeight, lineCount } = layout(item.preparedPrompt, textWidth, 22);
+//    '16px Pretendard, sans-serif' + { whiteSpace: 'pre-wrap', wordBreak: 'keep-all' }
+const { height: promptHeight, lineCount } = layout(item.preparedPrompt, textWidth, 24);
 
 // 4. 최종 카드 전체 높이 도출 (DOM 렌더링 전 100% 확정)
 const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
@@ -430,9 +434,9 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
   ]
 
   return (
-    <div className="demo-wrapper">
+    <div className="demo-wrapper" style={{ fontFamily: 'Pretendard, sans-serif' }}>
       {/* 데모 헤더 */}
-      <div className="demo-card">
+      <div className="demo-card" style={{ fontFamily: 'Pretendard, sans-serif' }}>
         <div className="demo-card-header">
           <div className="demo-card-title">
             <span>📜 6. TanStack Virtual 무한스크롤 & Transform 좌표 주입</span>
@@ -915,11 +919,12 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
                         </div>
                         <div
                           style={{
-                            fontSize: '14px',
+                            fontSize: '16px',
                             lineHeight: `${LINE_HEIGHT}px`,
-                            fontFamily: '"Pretendard", -apple-system, sans-serif',
+                            fontFamily: 'Pretendard, sans-serif',
                             color: '#e6edf3',
-                            wordBreak: 'break-word',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'keep-all',
                           }}
                         >
                           {item.prompt}
@@ -932,11 +937,12 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          height: '28px',
+                          height: '36px',
                           fontSize: '12px',
                           color: 'var(--text-muted)',
                           borderTop: '1px solid rgba(48, 54, 61, 0.6)',
                           paddingTop: '8px',
+                          boxSizing: 'border-box',
                         }}
                       >
                         <span style={{ color: 'var(--accent-orange)' }}>#{item.category}</span>
