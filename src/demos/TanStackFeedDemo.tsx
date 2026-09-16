@@ -197,6 +197,8 @@ export const TanStackFeedDemo: React.FC = () => {
     return { precalculatedHeights: heights, calcTimeUs: us }
   }, [items, effectiveFeedWidth])
 
+  const measuredNodesRef = useRef<WeakSet<HTMLElement>>(new WeakSet())
+
   // ============================================================================
   // [TanStack Virtual 설정]
   // ============================================================================
@@ -205,23 +207,36 @@ export const TanStackFeedDemo: React.FC = () => {
     getScrollElement: () => scrollContainerRef.current,
     // [핵심 차이점]:
     // 🚀 Pretext 모드: estimateSize에 100% 정밀 사전 계산 배열을 그대로 반환!
-    // ⚠️ 미적용 모드: 고정 추정치(140px)를 반환하고, DOM 마운트 시 measureElement로 역측정
+    // ⚠️ 미적용 모드: 기본 추정치(500px)를 반환하고, 실제 렌더링 후 measureElement로 역측정
     estimateSize: (index) => {
       if (usePretextEstimate) {
-        return precalculatedHeights[index] || 300
+        return precalculatedHeights[index] || 500
       }
-      return 140
+      return 500
     },
     overscan: 5,
   })
+
+  const rowVirtualizerRef = useRef(rowVirtualizer)
+  rowVirtualizerRef.current = rowVirtualizer
 
   // 무한 스크롤 자동 감지 및 로딩
   const virtualItems = rowVirtualizer.getVirtualItems()
 
   useEffect(() => {
     if (virtualItems.length === 0) return
+    const container = scrollContainerRef.current
+    if (!container) return
+
     const lastItem = virtualItems[virtualItems.length - 1]
+    // 💡 사용자가 실제로 스크롤을 내려 바닥 300px 이내에 도달했을 때만 추가 로딩 트리거
+    // (모드 전환이나 초기 마운트 시의 잘못된 폭주 호출 원천 방지)
+    const isAtBottom =
+      container.scrollTop > 50 &&
+      container.scrollTop + container.clientHeight >= container.scrollHeight - 300
+
     if (
+      isAtBottom &&
       lastItem &&
       lastItem.index >= items.length - 2 &&
       !isLoadingMore &&
@@ -246,12 +261,14 @@ export const TanStackFeedDemo: React.FC = () => {
     setMeasuredReflowTimeMs(0)
     setStressTestResult(null)
     setRecentlyMeasuredId(null)
+    measuredNodesRef.current = new WeakSet()
     rowVirtualizer.measure()
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   // 모드 전환(Pretext ON/OFF) 또는 너비 변경 시 가상화 측정 캐시를 리셋하여 깨끗하게 재측정
   useEffect(() => {
+    measuredNodesRef.current = new WeakSet()
     rowVirtualizer.measure()
   }, [usePretextEstimate, effectiveFeedWidth])
 
@@ -259,9 +276,15 @@ export const TanStackFeedDemo: React.FC = () => {
   const measureCallback = useCallback(
     (node: HTMLElement | null) => {
       if (!usePretextEstimate && node) {
+        // 중복 측정 방지: 이미 측정한 노드가 리렌더링될 때 무한 setState 폭주 차단
+        if (measuredNodesRef.current.has(node)) {
+          return
+        }
+        measuredNodesRef.current.add(node)
+
         const t0 = performance.now()
         // 🔥 Blink 엔진의 Document::UpdateStyleAndLayout() 강제 동기 호출!
-        const measuredHeight = node.offsetHeight
+        const _measuredHeight = node.offsetHeight
         const t1 = performance.now()
 
         setMeasuredReflowTimeMs((prev) => prev + (t1 - t0))
@@ -272,10 +295,10 @@ export const TanStackFeedDemo: React.FC = () => {
           setRecentlyMeasuredId(cardId)
         }
 
-        rowVirtualizer.measureElement(node)
+        rowVirtualizerRef.current.measureElement(node)
       }
     },
-    [usePretextEstimate, rowVirtualizer]
+    [usePretextEstimate]
   )
 
   // ============================================================================
@@ -479,16 +502,16 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                setUsePretextEstimate((prev) => {
-                  const next = !prev
-                  if (next) {
-                    setMeasureCounter(0)
-                    setMeasuredReflowTimeMs(0)
-                    setRecentlyMeasuredId(null)
-                  }
-                  return next
-                })
+                const next = !usePretextEstimate
+                setUsePretextEstimate(next)
+                setMeasureCounter(0)
+                setMeasuredReflowTimeMs(0)
+                setRecentlyMeasuredId(null)
                 setStressTestResult(null)
+                measuredNodesRef.current = new WeakSet()
+                // 모드 전환 시 스크롤 위치를 최상단으로 리셋하여 뷰포트 점프 및 비정상 트리거 방지
+                scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+                rowVirtualizer.measure()
               }}
               className="tab-btn"
               style={{
@@ -555,7 +578,7 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
                 <span>⚠️</span> Pretext 미적용 모드: DOM 역측정 및 강제 동기 리플로우 발생 중!
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                가상화 라이브러리가 초기 높이(140px)로 추정한 뒤, 스크롤될 때마다 <code>node.offsetHeight</code>를 읽어 동기 레이아웃을 유발합니다.
+                가상화 라이브러리가 기본 높이(500px)로 추정한 뒤, 스크롤될 때마다 <code>node.offsetHeight</code>를 읽어 동기 레이아웃을 유발합니다.
               </div>
             </div>
 
