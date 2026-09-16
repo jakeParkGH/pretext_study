@@ -355,17 +355,19 @@ export const TanStackFeedDemo: React.FC = () => {
       title: 'TanStack Virtual과 Pretext의 무한스크롤 결합 패턴',
       filePath: 'src/demos/TanStackFeedDemo.tsx',
       language: 'tsx',
-      code: `// 1. [Cold Path]: 텍스트 변경 시 1회만 prepare() (Pretendard 폰트 + pre-wrap + keep-all 옵션 적용)
+      code: `// 1. [Cold Path]: 텍스트 변경 시 1회만 prepareWithSegments() 또는 prepare() 호출
+// PrepareOptions: whiteSpace?: WhiteSpaceMode, wordBreak?: WordBreakMode, letterSpacing?: number
 const prepared = prepare(text, '16px Pretendard, sans-serif', {
-  whiteSpace: 'pre-wrap',   // 줄바꿈/공백 유지
-  wordBreak: 'keep-all',    // 한글 단어 단위 줄바꿈 에뮬레이션
+  whiteSpace: 'pre-wrap',   // 줄바꿈 문자(\\n) 및 연속 공백 유지
+  wordBreak: 'keep-all',    // 한글 어절 단위 줄바꿈 에뮬레이션 (CSS word-break: keep-all)
 });
 
 // 2. [Hot Path]: 컨테이너 너비(width) 변경 시 순수 산술 연산으로 전체 높이 배열 사전 생성 (0.02ms)
-const precalculatedHeights = useMemo(() => {
+// layout()은 DOM Query 0회, Canvas 0회 — 오직 캐시된 widths[] 배열 1회 순회
+const precalculatedHeights: number[] = useMemo(() => {
   const textWidth = feedWidth - PADDING_HORIZ;
   return items.map(item => {
-    const imageHeight = textWidth / item.aspectRatio; // 📐 종횡비 수학 나눗셈
+    const imageHeight = Math.round(textWidth / item.aspectRatio); // 📐 종횡비 수학 나눗셈
     const { height: textHeight } = layout(item.preparedPrompt, textWidth, 24); // ⚡ Pretext 산술식
     return FIXED_OVERHEAD + imageHeight + textHeight; // 🎯 1px 오차 없는 정확한 높이
   });
@@ -376,7 +378,8 @@ const rowVirtualizer = useVirtualizer({
   count: items.length,
   getScrollElement: () => scrollContainerRef.current,
   // 💡 Pretext로 사전 계산된 정밀 높이 배열을 그대로 반환!
-  estimateSize: (index) => precalculatedHeights[index], 
+  // estimateSize는 number를 반환해야 하므로 ?? 500 폴백으로 타입 안전 보장
+  estimateSize: (index) => precalculatedHeights[index] ?? 500,
   overscan: 5,
 });
 
@@ -462,7 +465,7 @@ const totalCardHeight = fixedUiHeight + imageHeight + promptHeight;
       <div className="demo-card" style={{ fontFamily: 'Pretendard, sans-serif' }}>
         <div className="demo-card-header">
           <div className="demo-card-title">
-            <span>📜 6. TanStack Virtual 무한스크롤 & Transform 좌표 주입</span>
+            <span>📜 TanStack Virtual 무한스크롤 & Transform 좌표 주입</span>
             <span
               key={mathFlashKey}
               className="header-badge"

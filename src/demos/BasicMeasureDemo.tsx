@@ -111,18 +111,22 @@ const totalBoxHeight = textHeight + (PADDING * 2 + BORDER * 2);
   const libraryCodeSample = `// -------------------------------------------------------------
 // [@chenglou/pretext 내부 핵심 최적화 소스코드 발췌]
 // -------------------------------------------------------------
+// import { prepare, layout, type PreparedText, type LayoutResult } from '@chenglou/pretext';
 
 // [1. pretext/src/measurement.ts: OffscreenCanvas로 DOM Invalidation 원천 차단]
+// segmentWidthCaches: 폰트 문자열 -> (세그먼트 문자열 -> 픽셀 너비) 2단 Map 캐싱
 let measureContext: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
-const segmentMetricCaches = new Map<string, Map<string, SegmentMetrics>>();
+const segmentWidthCaches = new Map<string, Map<string, number>>();
 
-function createMeasureContext(language: string | null) {
+function createMeasureContext() {
   // ⚡ 최적화 1: DOM 트리에 노드를 붙이지 않는 1x1 OffscreenCanvas 사용
-  // -> 일반 document.createElement와 달리 브라우저의 레이아웃 무효화 큐(Invalidation Queue)에 영향을 주지 않음!
+  // -> 일반 document.createElement와 달리 브라우저의 레이아웃 무효화 큐(Invalidation Queue)에
+  //    영향을 주지 않아 강제 동기 레이아웃(Layout Thrashing)을 원천 차단!
   if (typeof OffscreenCanvas !== 'undefined') {
     measureContext = new OffscreenCanvas(1, 1).getContext('2d')!;
     return measureContext;
   }
+  // OffscreenCanvas 미지원 환경 (일부 구형 브라우저)의 폴백
   if (typeof document !== 'undefined') {
     measureContext = document.createElement('canvas').getContext('2d')!;
     return measureContext;
@@ -130,34 +134,54 @@ function createMeasureContext(language: string | null) {
   throw new Error('Text measurement requires OffscreenCanvas or a DOM canvas context.');
 }
 
-// [2. pretext/src/measurement.ts: 폰트별 / 단어별 2중 Map 캐싱]
-export function getSegmentMetrics(seg: string, cache: Map<string, SegmentMetrics>): SegmentMetrics {
+// [2. pretext/src/measurement.ts: 세그먼트별 Canvas 너비 O(1) 캐시 조회]
+function getSegmentWidth(seg: string, fontCache: Map<string, number>): number {
   // ⚡ 최적화 2: 이미 측정된 단어는 Canvas measureText()를 부르지 않고 O(1) 즉시 반환
-  let metrics = cache.get(seg);
-  if (metrics === undefined) {
-    const ctx = getMeasureContext();
-    metrics = { width: ctx.measureText(seg).width };
-    cache.set(seg, metrics);
+  let w = fontCache.get(seg);
+  if (w === undefined) {
+    const ctx = measureContext ?? createMeasureContext();
+    w = ctx.measureText(seg).width;
+    fontCache.set(seg, w);  // 캐시에 저장 → 동일 단어 두 번째 호출부터 Canvas 0회
   }
-  return metrics;
+  return w;
 }
 
 // [3. pretext/src/layout.ts: layout()의 초경량 Hot Path]
+// LayoutResult = { lineCount: number; height: number }
 export function layout(prepared: PreparedText, maxWidth: number, lineHeight: number): LayoutResult {
   // ⚡ 최적화 3: layoutWithLines()와 달리 줄 범위 객체나 문자열 생성을 완전히 배제!
   // 오직 줄 수(lineCount)만 순수 산술 누적 루프로 계산 (~0.0002ms)
-  const lineCount = countPreparedLines(getInternalPrepared(prepared), maxWidth);
+  const lineCount = countLines(prepared, maxWidth);
   return { lineCount, height: lineCount * lineHeight };
 }
 
-// [4. pretext/src/line-break.ts: walkPreparedLinesSimple() 산술 누적 루프]
-function appendWholeSegment(segmentIndex: number, width: number): void {
-  if (!hasContent) {
-    startLineAtSegment(segmentIndex, width);
-    return;
+// [4. pretext/src/line-break.ts: 산술 누적 루프 (PreparedText 내부 widths/kinds 배열 1회 순회)]
+// PreparedText 내부(PreparedCore): widths[], kinds(SegmentBreakKind[]) 등 병렬 배열
+//   SegmentBreakKind = 'text' | 'space' | 'tab' | 'mandatory-break' | 'soft-hyphen' | 'zero-width-space'
+function countLines(prepared: PreparedText, maxWidth: number): number {
+  const { widths, kinds } = prepared as any; // PreparedCore (번들 내부 타입)
+  let lineCount = 0;
+  let lineW = 0;
+
+  for (let i = 0; i < widths.length; i++) {
+    const w: number = widths[i];
+    const kind: string = kinds[i];
+
+    if (kind === 'mandatory-break') {
+      lineCount++;   // \\n 강제 개행 → 즉시 새 줄
+      lineW = 0;
+      continue;
+    }
+    // 현재 줄 누적 폭 + 새 세그먼트 폭이 maxWidth 초과 → 줄바꿈
+    if (lineW + w > maxWidth && lineW > 0) {
+      lineCount++;
+      lineW = w;     // 새 줄의 첫 단어 폭으로 시작
+    } else {
+      lineW += w;    // ⚡ 숫자 덧셈만으로 다음 줄바꿈 지점 탐색 (DOM 호출 0회!)
+    }
   }
-  lineW += width; // ⚡ 숫자 덧셈으로만 다음 줄바꿈 지점 탐색 (CPU 집약적 단순 루프)
-  lineEndSegmentIndex = segmentIndex + 1;
+  if (lineW > 0) lineCount++;
+  return lineCount;
 }
 `;
 

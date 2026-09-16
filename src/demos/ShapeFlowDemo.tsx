@@ -253,9 +253,15 @@ export const ShapeFlowDemo: React.FC = () => {
   const shapeFlowCode = `// ------------------------------------------------------------------
 // [자유 형태 장애물 양방향 텍스트 래핑: Dual-Slot Obstacle Wrapping]
 // ------------------------------------------------------------------
-import { prepareWithSegments, layoutNextLine, type LayoutCursor } from '@chenglou/pretext';
+import {
+  prepareWithSegments,   // layoutNextLine()에 필요한 세그먼트 정보 보존 전처리
+  layoutNextLine,        // 커서(start)부터 slotWidth 안에 들어오는 한 줄을 반환
+  type LayoutCursor,     // { segmentIndex: number; graphemeIndex: number }
+  type LayoutLine,       // { text: string; width: number; start: LayoutCursor; end: LayoutCursor }
+} from '@chenglou/pretext';
 
 // 1. 텍스트 전처리 (1회만 수행)
+// prepareWithSegments = prepare + 세그먼트 배열 보존 (layoutNextLine 사용 시 필수!)
 const prepared = prepareWithSegments(articleText, FONT);
 let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 };
 let lineTop = 14;
@@ -265,9 +271,15 @@ while (lineTop + LINE_HEIGHT <= CONTAINER_HEIGHT) {
   const bandTop = lineTop;
   const bandBottom = lineTop + LINE_HEIGHT;
 
-  // 원형 장애물과 겹치는 수평 차단 구간(Interval) 계산
-  const blocked = circleIntervalForBand(obstacle.x, obstacle.y, obstacle.r, bandTop, bandBottom);
-  
+  // 원형 장애물과 겹치는 수평 차단 구간(Interval | null) 계산
+  const blocked: Array<{ left: number; right: number }> = [];
+  const circleInterval = circleIntervalForBand(
+    obstacle.x, obstacle.y, obstacle.r,
+    bandTop, bandBottom
+  );
+  // ⚠️ 반환값이 null이면 해당 라인 밴드에 원형 장애물이 걸리지 않음 → blocked 비워둠
+  if (circleInterval !== null) blocked.push(circleInterval);
+
   // 기본 너비에서 장애물 침범 구간을 빼내어 좌/우 가용 슬롯(Slots)으로 분할
   // e.g. [ { left: 14, right: 220 }, { left: 360, right: 566 } ]
   const slots = carveTextLineSlots({ left: 14, right: CONTAINER_WIDTH - 14 }, blocked);
@@ -275,14 +287,19 @@ while (lineTop + LINE_HEIGHT <= CONTAINER_HEIGHT) {
   // ⚡ 좌측 슬롯 -> 우측 슬롯 순으로 커서를 연속 전달하며 layoutNextLine() 호출
   for (const slot of slots) {
     const slotWidth = slot.right - slot.left;
-    let line = layoutNextLine(prepared, cursor, slotWidth);
+
+    // layoutNextLine: cursor 위치에서 slotWidth 안에 맞는 한 줄을 꺼냄
+    //   → 반환: LayoutLine | null  (null = 텍스트 소진)
+    let line: LayoutLine | null = layoutNextLine(prepared, cursor, slotWidth);
     if (!line) {
       cursor = { segmentIndex: 0, graphemeIndex: 0 }; // 텍스트 순환
       line = layoutNextLine(prepared, cursor, slotWidth);
     }
-    
+    if (!line) continue;
+
     renderLine(line.text, slot.left, lineTop);
-    cursor = line.end; // ⚡ 좌측 끝 커서가 우측 시작 커서로 즉시 연결!
+    // ⚡ line.end 커서가 좌측 슬롯의 끝 지점 → 우측 슬롯의 시작 커서로 즉시 연결!
+    cursor = line.end;
   }
 
   lineTop += LINE_HEIGHT;
@@ -291,20 +308,29 @@ while (lineTop + LINE_HEIGHT <= CONTAINER_HEIGHT) {
 
   const shapeFlowLibraryCodeSample = `// ------------------------------------------------------------------
 // [@chenglou/pretext 내부 핵심 코드: layoutNextLine() & 커서 기반 탐색]
-// 파일: pretext/src/layout.ts (Line 933-965)
+// 파일: pretext/src/layout.ts
 // ------------------------------------------------------------------
+
+// 공개 타입 (layout.d.ts):
+//   PreparedTextWithSegments — prepareWithSegments()가 반환하는 핸들 (세그먼트 배열 포함)
+//   LayoutCursor  — { segmentIndex: number; graphemeIndex: number }
+//   LayoutLine    — { text: string; width: number; start: LayoutCursor; end: LayoutCursor }
+//   LayoutLineRange — text 없이 커서·폭만 담은 중간 결과 (materializeLineRange 전 단계)
+
 export function layoutNextLine(
   prepared: PreparedTextWithSegments,
   start: LayoutCursor,
   maxWidth: number,
 ): LayoutLine | null {
-  // ⚡ 최적화 1: 텍스트의 처음부터 다시 탐색하지 않고, 직전 라인의 end 커서부터 점진적(Incremental) 탐색!
+  // ⚡ 최적화 1: 텍스트의 처음부터 다시 탐색하지 않고,
+  // 직전 라인의 end 커서(start)부터 점진적(Incremental) 탐색!
   const range = layoutNextLineRange(prepared, start, maxWidth);
   if (range === null) return null;
 
-  // ⚡ 최적화 2: 줄바꿈 판정 중에는 문자열을 만들지 않고, 
+  // ⚡ 최적화 2: 줄바꿈 판정 중에는 문자열을 만들지 않고,
   // 화면 출력이 확정된 최종 라인에 대해서만 1회 문자열을 슬라이스(materialize)
   return materializeLineRange(prepared, range);
+  //   → LayoutLine = { text, width, start, end }
 }
 
 // 💡 왜 CSS는 불가능하고 Pretext로는 60fps 양방향 래핑이 가능한가?
@@ -315,7 +341,7 @@ export function layoutNextLine(
 //
 // 2. Pretext 커서 라우팅:
 //    - DOM에 렌더링하기 전에 슬롯 기하(Interval)를 수식으로 구하고 layoutNextLine()을 호출함.
-//    - 좌측 슬롯의 끝 커서(end)가 우측 슬롯의 시작 커서(start)로 바로 이어지므로 글의 단절이 없음.
+//    - 좌측 슬롯의 끝 커서(line.end)가 우측 슬롯의 시작 커서(start)로 바로 이어지므로 글의 단절이 없음.
 //    - DOM 측정 없는 순수 산술 연산이므로 드래그 중에도 항상 완벽한 60fps를 유지함!
 `;
 

@@ -190,11 +190,19 @@ function onTokenReceivedPretext(token, containerWidth) {
 // LLM 스트리밍에서 DOM Dirty Bit 플러시 없이 높이를 0.0002ms에 계산하는 원리
 // ============================================================================
 
+// 공개 타입 (layout.d.ts):
+//   PreparedText   — prepare()가 반환하는 불변 불투명 핸들
+//   LayoutResult   — { lineCount: number; height: number }
+// 내부 타입 (PreparedCore / 번들 전용):
+//   widths[]         — 세그먼트별 픽셀 너비 배열 (OffscreenCanvas 1회 측정 후 캐시)
+//   kinds[]          — SegmentBreakKind 배열 ('text' | 'space' | 'mandatory-break' | ...)
+//   lineEndFitAdvances[] — 줄 끝 피트(fit) 어드밴스 보정값 배열
+
 /**
  * 1. layout()의 핵심:
- * DOM을 읽지 않고 오직 캐시된 폭 배열(PreparedLineBreakData)을 순회하여
+ * DOM을 읽지 않고 오직 캐시된 widths/kinds 배열(PreparedCore)을 순회하여
  * lineCount를 센 뒤, (lineCount * lineHeight)로 높이를 반환합니다.
- * 
+ *
  * 💡 브라우저가 DOM을 읽는 scrollHeight, clientHeight 호출이 0회이므로
  *    Dirty bit가 마킹된 DOM 트리를 강제로 플러시(Hard Reflow)할 필요가 전혀 없습니다.
  */
@@ -204,8 +212,8 @@ export function layout(
   lineHeight: number
 ): LayoutResult {
   // layoutWithLines()와 달리 각 줄의 문자열 인덱스를 기록하지 않고
-  // 오직 줄 바꿈 횟수만 세는 초고속 경로(countPreparedLines)를 탑니다.
-  const lineCount = countPreparedLines(getInternalPrepared(prepared), maxWidth);
+  // 오직 줄 바꿈 횟수만 세는 초고속 경로를 탑니다.
+  const lineCount = countLines(prepared, maxWidth);
   return {
     lineCount,
     height: lineCount * lineHeight, // 📐 순수 CPU 정수/부동소수점 곱셈 연산!
@@ -213,21 +221,22 @@ export function layout(
 }
 
 /**
- * 2. countPreparedLines():
- * DOM 레이아웃 트리 순회가 아닌, JS 힙 메모리의 폭 배열을 1회 루프하는 순수 알고리즘
+ * 2. countLines(): PreparedCore.widths 배열을 1회 순회하는 순수 알고리즘
+ * DOM 레이아웃 트리 순회가 아닌, JS 힙 메모리의 폭 배열을 루프하는 순수 알고리즘
  */
-export function countPreparedLines(
-  prepared: PreparedLineBreakData,
-  maxWidth: number
-): number {
-  const { widths, kinds } = prepared;
+function countLines(prepared: PreparedText, maxWidth: number): number {
+  const { widths, kinds } = prepared as any; // PreparedCore
   if (widths.length === 0) return 0;
 
   let lineCount = 0;
   let lineW = 0;
 
   for (let i = 0; i < widths.length; i++) {
-    const w = widths[i];
+    const w: number = widths[i];
+    const kind: string = kinds[i]; // SegmentBreakKind
+
+    // 'mandatory-break' = \\n 강제 개행
+    if (kind === 'mandatory-break') { lineCount++; lineW = 0; continue; }
     // 현재 누적 폭에 새 세그먼트를 더했을 때 maxWidth를 초과하면 줄바꿈
     if (lineW + w > maxWidth && lineW > 0) {
       lineCount++;
@@ -243,12 +252,12 @@ export function countPreparedLines(
 
 /**
  * 🚀 브라우저 렌더링 파이프라인 관점에서의 차이점:
- * 
+ *
  * 1) 기존 방식 (element.scrollHeight):
  *    JS 실행 -> DOM 변경 (dirty) -> [scrollHeight 요청!]
  *    -> 브라우저 렌더러: "잠깐! 최신 높이를 알아야 하니 지금 즉시 동기 레이아웃 실행해!"
  *    -> VSync 주기 무시, 매 토큰마다 동기식 CPU 100% 낭비 및 레이아웃 스래싱!
- * 
+ *
  * 2) Pretext 방식 (layout(prepared, width, lineHeight)):
  *    JS 실행 -> Pretext 순수 연산으로 height 산출 -> rAF 스케줄링
  *    -> 브라우저 렌더러: "DOM 조회가 없으니 다음 VSync 신호 올 때까지 파이프라인 대기"
